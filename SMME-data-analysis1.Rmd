@@ -1,0 +1,1321 @@
+---
+title: "Factors that inform SMME profitability in South Africa using the 2010 FINSCOPE dataset"
+author: "Lindokuhle Tshongolo"
+date: "2023-06-13"
+output:
+  word_document: default
+  html_document: default
+---
+## Introduction.
+
+### Research Purpose
+
+South Africa has a persistent unemployment problem, with around 34.5% of the population unemployed. Figures are even more concerning when we look at youth unemployment which stands at a staggering 63.9% for the young between the ages of 15-24 and around 42.1% for those who are between the ages of 25 - 35. These numbers are inclusive of the people who are are eligible to work. Such high numbers can have negative devastating effects on the people who are affected both directly and indirectly, such as crime, poverty and social cohesion. Thus potential solutions to these problems are of utmost importance.
+
+SMMEs (Small Micro Medium Enterprises) have the potential to offer solution to this unemployment issue, and promote economic growth. The barriers of entry for starting SMMEs are low and are accessible to many with little capital. Furthermore, these enterprises have the potential of introducing innovation and bringing in new ideas to the economy of which the bigger businesses might have missed. Additionally, SMMEs have the ability of going after the smaller opportunities in the economy of which bigger companies can't go after as this might distract them from their core businesses, and capitalize on them and thus bringing about growth and employment. Additionally, SMMEs have the advantage of being local, and thus have the ability of going after the local opportunities and offer solutions to their immediate communities, again having a competitive advantage over the bigger businesses who are removed from the ground. Furthermore, bigger companies can delegate some of their activities to SMMEs as a form of cost saving mechanisms. This can be the same for government, who can offer relatively smaller tenders or sub-contract work to these small enterprises.
+
+However, SMMEs have high failure rates, with about 75% of all SMMEs failing within the first two years of them being founded. This reveals that SMMEs tend to face a lot of challenges in the markets. Thus, much work needs to be done to ensure their success, and the factors that contribute to their failure of success needs to be known such that the appropriate support measures can be given to new founders and thus contribute to their growth. 
+
+This analysis we will be looking at the factors that drive the succesess or failure of SMMEs in the South African context using the 2010 Finscope SMME data to analyse these factors that contribute to the success of SMMEs. The target variable we will use as the proxy for SMME performance is business monthly profits and a slew of other variables will be used as the predictor variables.
+
+
+### Technical Steps
+
+ This analysis first select all the columns that are deemed relevant using mostly the literature associated with the SMME sector in South Africa, and thus no statistical methods will be  used to do the initial variable selection. This was due to a variety of reasons, one being a lack of resources both in terms of technical skills and time considerations, with having to clean a total of about 2012 variables of which many were repetitive and thus had the potential of introducing redundancy. This initial selection of variables will reduce the number of variables from the original data set from 2012 variables to about 52 variables which is still a tall order but a manageable task.
+ 
+ The second aspect of our analysis and the most elaborate will deal with the creation of new variables that will be useful in our analysis.Note, the inclusion of many variables initially is to help the model deal with biases in trying to understand the factors that determine business performance. Too few variables might introduce biases into our model as the model might not be able to understand the nuances, variability and sources of such variability in the data. Further, we will also clean the existing variables such that they reflect their appropriate data types. Again, this analysis will motivate on the importance of such variables that have been included in the model and how they will aide in our analysis. Then we move on to the cleaning of the columns to ensure that they are consistent and do not have redundancy or repeated column names. 
+ 
+Then, this analysis will carry out outlier detection using studentized residuals to identify them initially. Then, to figure out if such outlierrs are influential, this analysis will make use of cook's distances, which is a composite measure of outlierness and leverage to find influential data points. Then, we use the VIF(Variance inflation factor) which is a ration of 1 to 1 less the coefficient of determination, with higher ratio values associated with high multicollinearity, to find highly correlated or multicollinear variables and remove them from the model. Then, log transformations are used to fix non linearity issues in the data and lessen the severity of heteroscedasticty if it exists. Furthermore, we use the resset test to test for the presence of model mispecification, and further make use of random forests to deal partially with the issue of model mispecification by finding important interactions using the *random forest explainer* package. As a benchmark model, this analysis will make use of the logged linear regression model. This model can solve the issue of non-linearity and partially solve the issue of heteroscedasticity. Finally, the lasso regression model will be used to find the most robust variables that have the most explanatory power when it comes to SMMEs performance. The lasso regression have the ability of removing any multicollinearity and unimportant variables by sending them to zero.
+
+
+
+## Data Importing and variable naming
+
+Here we will be importing the data from the local directory to the working environment, and load the libraries that  will be working with, the work done by each library will be specified when it is invoked at different parts of this document. The name of the dataset that this analysis will make use of is the finscopeSMME2010 data collected across South Africa, and the details of the dataset can be provided on request.
+
+```{r}
+library(readxl)
+FinScopeSMME2010 <- read_excel("FinScopeSMME2010.xlsx")
+
+```
+
+```{r}
+rm()
+
+#FinScopeSMME2010 <- read_excel("FinScopeSMME2010.xlsx")
+#View(FinScopeSMME2010)
+library(stargazer)   # For tables
+library(ggplot2)    #for the graphs
+library(tidyverse)   #for manipulating the data
+library(dplyr)
+library(tableone)
+library(janitor)
+library(corrplot)
+library(car)
+library(lmtest)
+library(readr)
+library(readxl)
+library(caret)
+library(car)
+library(mice)
+library(lmtest)
+library(randomForestExplainer)
+library(randomForest)
+library(coefplot)
+```
+
+```{r}
+#Get the data into a more usable format
+finscope_data <- FinScopeSMME2010
+```
+
+
+
+## Variable Selection
+
+To select the relevant variables from the bigger Excel file we make use of the *select* function, then use the *colnames* function to rename the columns to much more appropriate column names which reflect the information they contain. Note, the codes of these columns correspond to the original Excel document which matches each code to a column name.
+
+```{r}
+finscope_data_selected <- finscope_data %>%
+  select(`ID`,`Q920#`,`Q921#`,`Q81#`,`Q82#`,`Q86#`,`Q87#`,`Q89#P`,`Q89#Q`,`Q89#R`,`Q89#S`,`Q89#T`,`Q89#U`,`Q89#V`,`Q257#`,`Q117#A`,`Q117#B`,`Q117#C`,`Q117#D`,`Q117#E`,`Q121#`,`Q124#`,`Q133#AD`,`Q133#AE`,`Q133#AF`,`Q133#AI`,`Q133#AG`,`Q153#`,`Q152#A`,`Q690`,`Q692`,`Q41#`,`Q228#`,`Q229#`,`Q230#`,`Q232#`,`Q233#`,`Q183#`,`Q605#`,`Q624#`,`Q175#`,`Q171#`,`Q170#LN`,`Q123#`,`Q120#`,`Q128#`,`Q184#B`,`Q231#`,`Q189#`,`Q191#`,`Q637#`,`Q180#`,`Q95#`)
+
+colnames(finscope_data_selected) <- c("ID1","Location","Province","Businesstype","wherebusoperate","ownrent","TotHoursWrk","vision/mis","busPln","busstr","mrkpln","Accfinrec","frmlTrnStff","busbgt","TotNumWorkers","PrivIndv","otherSmallBus","OtherLargeBus","Gov","Other","TenderSucc","RegWthCIRPO","BusContInsOffEquip","BusContSpecialisedToolsorMchinery","PrpStrBusPremIns","CrpIns","AccDamTransIns","LargeSrcBorr","BankLoan","BusTurnMonthly","BusNetProfmnthly","Age","Gender","Race","Mar Stat","HighlevelEdu","IsBusOnlySrcInc?","KeepFinRec","OvrallFinAccess","CreditBorrowingStrd","HavingSecurityMeasures","sufferedCrimeortheft","ClaimInsforTheft","IsBusRegistered","SubmittedTenderProp", "BEEContrStatScoreCrd","CompFinRecs","OwnerRentorOwnPrivRes","ExptoCUST","SuppOutofSA","HaveIns","OffGoodCred","YearBusStart")
+
+```
+
+Now that we have selected all the necessary columns, renamed them to much more appropriate names, though it might seem that the names are still codified, however, with the new column names, the reader can follow the names of these columns much more intuitively. We can now move to a new part of our analysis, the creation of new variables.
+
+
+
+## Creating variables
+
+Then, this stage of the analysis pertains to the creation of new variables and cleaning up the existing ones so that they match their relevant data types, i.e. Categorical, numerical variables, etc. In this part of the analysis, we will also create new variables that will aid us in our analysis. For each variable that will be created in this part, an explanation of what each portion of the code is doing will be provided as much as possible whilst simultaneously trying to limit redundancy. Further, a motivation of why such variable is necessary and how it will aid us in our analysis will be extensively provided.
+
+#### The Target Variable and Motivation for the study
+
+The first variable we will look into the is the explained/dependent variable in our analysis which pertains to business performance. From the data-set, there are two variables that can be good proxies for business performance, which are, *business monthly turnover* and *monthly profits*. However, these two variables are most likely to be highly correlated, thus we will choose monthly profitability as a proxy for business performance. The logic for choosing businesses that are profitable as a proxy owes to the fact that profits are net expenses as opposed to revenue which just look into money that comes into a business. Therefore, we argue that net expenses income is a much more robust indication for business performance than just pure revenue, as revenue can be drained by expenses in a businesses such as, operating expenses, liabilities or high labor costs, thus living a small portion as profits. Thus, shielding appropriate business perfomance.
+
+As outlined and motivated above, this analysis uses *business monthly profits* as the explained/dependent variable which we seek to understand. All the other variables in this analysis are added as potential robust explanatory variables for profitability, thus ultimately the performance of SMMEs (Small Micro Medium Enterprises). Identification of such variables can ultimately be of use to investors or creditors as an understanding of the factors that determine profitability can aid these stakeholders pick good businesses thus leading to return on investment or the honoring of debts. Or in the case of policy makers, this framework can aid them in coming up with the appropriate support for small enterprises as they would have a firm understanding of those factors that are important in determining success. This analysis and its results can also be of value to small business owners, as a proper understanding of the factors that are significantly associated with performance can aid them on planning how to structure their businesses such that they are profitable.
+
+The cleaning of this variable was an elaborate affair. There was some attrition by the respondents who refused to disclose how much they were making for their business in turnover on monthly basis. Other respondents simply didn't know how much they were making to begin with while others refused to give a figure for their incomes. Thus, to deal with these missing data points, we assigned *refused* and *Don't know* to *NA* which is a statement for missing values. By assigning to missing, we are implicitly assuming that the missing values or the attrition was happening at random and there was no underlying pattern to why some members attrition-ed, otherwise if there was a pattern then that would bring bias to our model. We then used as numeric to turn the variable to its appropriate data type of numeric. The variable of Monthly profits also follow the same trajectory as monthly turnover, though the pattern of missing values might be different, i.e no two columns in monthly turnover and monthly profit might be missing at the same time.
+
+```{r}
+finscope_data_useful <- finscope_data_selected #This portion is to simple make a new dataframe and copy the data from the initial one.
+
+#Income (turnover)/ THERE is a lot of missing values, I wish whatever model I pick to imputate the missing values doesnt't rely on mean since the mean is unreliable source of predicting missing values..
+unique(finscope_data_useful$BusTurnMonthly)
+finscope_data_useful$BusTurnMonthly[finscope_data_useful$BusTurnMonthly == "refused"] <- NA
+finscope_data_useful$BusTurnMonthly[finscope_data_useful$BusTurnMonthly == "Don't know"] <- NA
+finscope_data_useful$BusTurnMonthly <- as.numeric(finscope_data_useful$BusTurnMonthly,na.rm = TRUE)
+summary(finscope_data_useful$BusTurnMonthly)
+
+#Monthly profits..
+unique(finscope_data_useful$BusNetProfmnthly)
+finscope_data_useful$BusNetProfmnthly[finscope_data_useful$BusNetProfmnthly == "refused"] <- NA
+finscope_data_useful$BusNetProfmnthly[finscope_data_useful$BusNetProfmnthly == "Don't know"] <- NA
+finscope_data_useful$BusNetProfmnthly <- as.numeric(finscope_data_useful$BusNetProfmnthly,na.rm = TRUE)
+summary(finscope_data_useful$BusNetProfmnthly)
+```
+
+
+
+
+#### Have Access to how many business functions.
+
+Then the second variable we create is the business functions variable, which tells us how many business functions each SMME has access to. This variable can assist in shedding light on the sophistication of each of these SMMEs, and provide more information that might be relevant in drawing distinctions between the enterprises that are more profitable and resilient from those that are not. For example, the fact that a business has access to a business plan, marketing plan, or access to financial recording system and other facilities might shed light on whether an enterprise is professional in its business conduct, has a concrete plan on how it intends to take advantage of market opportunities and generate profits for its owners. Generally, it is reasonable to expect that the more business functions a business has access to, the more successful the business will be executing its operations and thus the more profitability it will be. Proper documented business strategies with regards to the vision the business has and how it intends to generate value and grow are important in guiding the business on its path to achieving its most ambitious goals.
+
+The creation of *HaveAccesstohowmanybusfuncs* variable is one of the most extensive variable creation schemes we will do in this analysis, as it requires that we use multiple functions to create one variable. Then, using the now created *finscope_data_useful* data frame, we use the pipe operator *%\>%* to feed the data forward to the *mutate* function which is used to change the form of the responses in the respective variables from being characters such as *YES or NO* to being either *1 or 0*. We do this for all the variables pertaining to business information, with *YES* corresponding to *1* and *NO* corresponding to a *0*. Then, change their data types from being *character* to *numerical* data types using *as.numeric*. Then, we horizontally sum across the rows, where if there is *1* its added up and if its a *0* it remains the same. Finally, each row has the potential of having access to at least *6* business functions depending on how many business functions each of these businesses has access to. Note, there is order in the number of business functions each enterprise has access to. With the more access it has, the better its chances of being profitable.
+
+```{r}
+
+#To create the new variable, we make extensive use of the mutate function where we mutate each of the variables that have something to do with business information from being encoded as a character of either YES/NO to being encoded as either 1 or 0.
+
+finscope_data_useful <- finscope_data_useful %>% mutate(`vision/mis` = replace(`vision/mis`,`vision/mis` == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(`vision/mis` = replace(`vision/mis`,`vision/mis` == "NO",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(busPln = replace(busPln,busPln == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(busPln = replace(busPln,busPln == "NO",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(busstr = replace(busstr,busstr == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(busstr = replace(busstr,busstr == "NO",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(mrkpln = replace(mrkpln,mrkpln == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(mrkpln = replace(mrkpln,mrkpln == "NO",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(Accfinrec = replace(Accfinrec,Accfinrec == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(Accfinrec = replace(Accfinrec,Accfinrec == "NO",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(frmlTrnStff = replace(frmlTrnStff,frmlTrnStff == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(frmlTrnStff = replace(frmlTrnStff,frmlTrnStff == "NO",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(busbgt = replace(busbgt,busbgt == "YES",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(busbgt = replace(busbgt,busbgt == "NO",0))
+
+#turning the columns into numeric variables which will be useful in the next step/ we do this for each of the variables on business information.
+finscope_data_useful$`vision/mis` <- as.numeric(finscope_data_useful$`vision/mis`)
+finscope_data_useful$busPln       <- as.numeric(finscope_data_useful$busPln)
+finscope_data_useful$busstr       <- as.numeric(finscope_data_useful$busstr)
+finscope_data_useful$mrkpln       <- as.numeric(finscope_data_useful$mrkpln)
+finscope_data_useful$Accfinrec    <- as.numeric(finscope_data_useful$Accfinrec)
+finscope_data_useful$frmlTrnStff  <- as.numeric(finscope_data_useful$frmlTrnStff)
+finscope_data_useful$busbgt       <- as.numeric(finscope_data_useful$busbgt)
+
+#Have access to how many business functions??/ from 0 to 6 business functions/ thus,each business will have access to from 0 to 6 business functions, we do this by adding up all the columns. This analysis will expect that as the number of business functions a business has access to, the more profitable/successful it'll be.
+#Note, we have also made use of the pipe operator %>% to feed the dataset to the other functions, and we also create a new variable called HaveAccessToHowManyBusFuncs which store to the finscope_data_useful.
+finscope_data_useful$HaveAccesstohowmanybusfuncs <- finscope_data_useful%>%
+  select(`vision/mis`,busPln,busstr,mrkpln,Accfinrec,frmlTrnStff,busbgt)%>%
+  rowSums(na.rm = TRUE)
+
+summary(finscope_data_useful$HaveAccesstohowmanybusfuncs)
+```
+
+
+The next variable we will be cleaning is the categorical variable of provinces. It is worth noting that this is a categorical variable, not simply a binary category, thus, one of the levels in this variable will be used as the reference category. Thus, when we interpret each category, it will be interpreted in reference to the selected category.
+
+With this variable, it is expected that the businesses that are found in the core economic/industrial provinces in South Africa will tend to perform better compared to those that are outside the industrial hubs. Thus, this analysis expects that businesses found in Gauteng, followed by the Western Cape, then KwaZulu-Natal will be significantly more positively associated with business performance than those found in the rest of the provinces which are not in the industrial hubs.
+
+This variable will be encoded as a factor/categorical variable with nine levels. We have used *unique* to get a sense of what these categories will be, if there will be missing values or values that we didn't expect so that we can be able to deal with such. Then, the *class* function was used to review the class these variables were stored as so that is they were not appropriate they could be fixed. Then we used the *factor* function to encode the variables into nine categories and one variable will be used as the reference category. Note, here *R* simply organised the provinces in alphabetical order as this is the default way to organize variables in *R*. Then *summary* simple extract the most salient features of the variables.
+
+Note, the way we will deal with categorical variables across this analysis will be the same. Thus for each variable below that is categorical, reference this variable to get an idea of the usage of the functions to deal with factor variables.
+
+```{r}
+
+#Province/ the labels must correspond to the levels
+unique(finscope_data_useful$Province)
+class(finscope_data_useful$Province)
+finscope_data_useful$Province <-factor(finscope_data_useful$Province)
+summary(finscope_data_useful$Province)
+str(finscope_data_useful$Province)
+
+```
+
+Next up, we clean the location column, which has four levels. This variable will separate businesses according to the locations in which they are found. There are four main locations to which this variable separates into, which are rural formal, tribal area, urban formal and urban informal. We expect that urban formal to have the most significant and a positive relation with business performance, followed by Tribal formal then urban informal then, the most disadvantaged being tribal area. This would especially be the case in the instance of South Africa where the distinction of formal and informal would highly likely follow the remnincances of apartheid era spatial and economic planning which persist to this day in the division between the formal and the informal areas.
+
+The logic for us to expect such a relationship is due to infrastructural and economic considerations. We expect businesses in urban areas to have better infrastructure which can aid in ensuring that they can deliver superior goods or services compared to the relatively infrastructural disadvantaged areas in the rural and informal areas. Infrastructure such as places to run business, being in the CBD where there's an influx of many people who are coming through in droves to buy goods or services can prove to be an advantage compared to the rural or informal sectors whose businesses might not be located in areas of commerce. Furthermore, in the context of South Africa, there are vast differences between tribal area and rural formal as the latter is much more likely to be enganged in much more skilled and capital intensive businesses compared to their more tribal rural area counterparts.
+
+Second advantage that location offers pertains to economic advantages. Generally, people who are found in rural or urban informal areas tend to be relatively poorer compared to their urban and rural formal counterparts. Also, these two groups will tend to be located away from the economic core areas which has many buyers and sellers. This relative economic advantage these locations and inhabitants enjoy can translate to the businesses that operate in these areas having much more customers who can also spend relatively way more money and thus translate to better business performance compared to their poorer rural and urban informal counterparts.
+
+Further, it is generally the case that market entrants will typically sell products to people or customers with whom they have a personal relationship with to facilitate trust in that transaction. Now, since people who are found in urban informal and rural areas tend to be relatively poor, the basket of goods or services you can offer them is quite small as they are constrained by budget considerations, and most of their needs are already covered by the core economy. This limitation might be a bit relaxed for their relatively well off counterparts who can afford to spend more on new products.
+
+The second variable also aid the above, in helping to determine business performance. Unlike the above, this variable looks into where each SMME is operating in withing the respective locations. Some are operating at residential premises, whilst some in more formal places which were tailor designed for businesses, whilst others would be operating in say markets, school cafeterias and many more. Again, we expect the more business premises are formal and tailor made for that particulabusinessr, the more they will be able to drive profitability, compared to the enterprises whose premises where not designed for the particular business.
+
+The construction of this variable also follow the same pattern we used to construct the previous variable above.
+
+```{r}
+#location/
+unique(finscope_data_useful$Location)
+finscope_data_useful$Location <- factor(finscope_data_useful$Location)
+class(finscope_data_useful$Location)
+summary(finscope_data_useful$Location)
+
+#WhereBusinessOperate
+unique(finscope_data_useful$wherebusoperate)
+finscope_data_useful$wherebusoperate <- factor(finscope_data_useful$wherebusoperate)
+levels(finscope_data_useful$wherebusoperate)
+summary(finscope_data_useful$wherebusoperate)
+
+```
+#### Business type
+
+Next, we look at the type of the businesses each of these businesses engage in. It is generally the case that different businesses in different industries will not perform the same. This can be attributed to a wide variety of factors, for example, some businesses are just more sophisticated and are able to serve the core needs of society compared to others. Whilst others might have been started with little market research and thus might not be really solving a problem in society, and that the intentions of the business founder were based off survivalist intents rather than a thorough research into which opportunities can generate profitability. Thus, it will be worthwhile to figure which types of business have a robust relationship with business profitability.
+
+Here again, we didn't specify the levels, and *R* automatically orders the variable in alphabetical order which is desirable as this reduces the chance of making mistakes in labeling, since labels have to match the specified levels.This might not be clear now, but if you play around with the *factor* function, you can see that you can tweak the specifications of this function.
+
+```{r}
+#The types of businesses each of these enterprises engage in.
+finscope_data_useful$Businesstype <- factor(finscope_data_useful$Businesstype)
+str(finscope_data_useful$Businesstype)
+levels(finscope_data_useful$Businesstype)
+summary(finscope_data_useful$Businesstype)
+
+```
+#### Own or Rent private residences and Own or rent business premises
+
+The inclusion of the two variables below, which are owning or renting the private residence and business premises, plays a multifold role in the analysis of business performance. Lets first look at it from the perspective of property ownership as collateral. Collateral serves as a costly way for good borrowers to signal themselves by pledging a highly marketable good to secure a loan. The presence of such a good can serve as a measure to mitigate against risky behavior by the borrowers once they receive the credit. Property can act as a good proxy for collateral as property is highly immutable, meaning the owners cannot move it or exchange it easily. Further, we expect that property will retain its value for long sustained periods of time in relation to other assets such machinery or vehicles.
+
+Furthermore, property is relatively more liquid compared to other assets, can be easily sold off. Thus, we expect that property will act as good proxy for collateral. This then translate into the thinking that companies with properties can pledge them as collateral. Thus, its highly likely that these businesses will in turn have access to credit which will aid in the growth of such businesses, compared to those with no collateral position.
+
+Another relationship that property might have to business performance might have to do with having business premises. Businesses that can operate in their own business premises will be more secured, have reliable places to store their inventory or machinery or any other assets that are essential in the smooth running of the business. Furthermore, business premises can also offer a place where customers can easily reach these businesses and source such goods, and further offer trust between the customer and the store owners as businesses with physical addresses will tend to be much more trustworthy.
+
+Now, lets look at the cleaning of these variables. The code below introduces something a bit different as it creates a new variable and the variable also has missing values. The first task is to encode the *not applicable* and *other* as missing values, that is, encode them to *NA*, and this is really an easy way of dealing with a potentially nuanced problem. However, domain knowledge would be needed to think through how could a business potentially not have business premises. And also in the instance of other, there could be so many other considerations that speculating what those could be, and then having to come up with one word that encapsulate all those reasons would present an enormous task, hence this analysis decided to relegate them to missing and then create a binary variable.
+
+The creation of this variable also is an elaborate affair as we have to make use of conditional statements to either classify as a 1 or a 0 depending on the category a data point might fall into. Here, we assign *own* to 1 and everything else is relegated to 0, note, we could have also assigned *not applicable* and *other* to 0 as well, however that would have been an easy get out of jail card. Here, it's also the first time we make use of the level and label statements that I alluded to above, however, they are self-explanatory. One thing to need to be careful of is to make sure that the levels match the labels as *R* cannot help us on this one and there are high chances of making errors and thus collapsing the entire operation. The same reasoning and logic is also applicable to the second variable which looks into the ownership of private residences instead of business residences.
+
+```{r}
+#Own or rent business premises
+unique(finscope_data_useful$ownrent)
+finscope_data_useful$ownrent[finscope_data_useful$ownrent == "Not applicable"] <- NA
+finscope_data_useful$ownrent[finscope_data_useful$ownrent == "Other"] <- NA
+finscope_data_useful$ownrent <- ifelse(finscope_data_selected$ownrent == "Own",1,0)
+finscope_data_useful$ownrent <- factor(finscope_data_useful$ownrent, levels = c(0,1), labels = c("Don't own the business premises (Use it without rent/or rent it)","Own the business premises"))
+str(finscope_data_useful$ownrent)
+levels(finscope_data_useful$ownrent)
+summary(finscope_data_useful$ownrent)
+
+#Own or rent private residences/ not the business facilities....
+unique(finscope_data_useful$OwnerRentorOwnPrivRes)
+finscope_data_useful$OwnerRentorOwnPrivRes[finscope_data_useful$OwnerRentorOwnPrivRes == "Not applicable"] <- NA
+finscope_data_useful$OwnerRentorOwnPrivRes[finscope_data_useful$OwnerRentorOwnPrivRes == "Other"] <- NA
+finscope_data_useful$OwnerRentorOwnPrivRes <- ifelse(finscope_data_selected$OwnerRentorOwnPrivRes == "Own",1,0)
+finscope_data_useful$OwnerRentorOwnPrivRes <- factor(finscope_data_useful$OwnerRentorOwnPrivRes, levels = c(0,1), labels = c("Don't own the private residence (Use it without rent/or rent it)","Own the private residence"))
+summary(finscope_data_useful$OwnerRentorOwnPrivRes)
+
+```
+
+#### SMME Classification, number of employees and Number of hours worked
+
+The next variable we look into pertains to the separation of these enterprises into either Own account,Small, Micro or Medium Enterprises (SMMEs classification).
+
+The separation of these enterprises into these categories follows the logic that there are distinctions between larger firms and relatively smaller firms and the challenges they face and their performances tend to vary in accordance with their sizes. For instance, smaller enterprises will tend to be relatively more informal compared to their larger counterparts. Furthermore, larger enterprise owners will tend to have higher skill profiles or access to a budget to source such skills which can translate to better performance when compared to their smaller peers. Also, the opportunities they pursue in the markets and the sophistication in their deliverance of goods and services in response to such opportunities might differ significantly, with more efficiency attributed to the larger enterprises. This would be also the case when it comes to budgets, access to capital or credit line between enterprises of different levels.
+
+Furthermore, the very small enterprises will tend to be survivalist in their nature, and thus would be established to merely make ends meet for the owners and not to take advantage of businesses opportunities. Thus, these enterprises might approach the market with a scarcity mindset which not look to take advantage of market opportunities but to merely generate income to sustain the owner.
+
+These points above seek to illustrate that these enterprises exists on a continuum and thus cannot be treated in the same way and they each have a unique and complex relationship with business performance.
+
+Now, lets look at the construction of this variable. First, in our analysis we used a nested if-else statement to classify these different enterprises according to the number of employees and then classifying these enterprises into either of these four classes/categories, own account if there are 0 workers, micro-enterprises if it had less than 10 enterprises, a small enterprise if it had less than 49 employees and the last category was the medium enterprise category. Now, since these categories are not arbitrary and there is some order to them, we set *ordered* to *TRUE* and set the levels in their respective order as guided by the number of employees.
+
+The next variable is related to the above variable, here we just putting it as it is without the manipulations.Now, this might pose problems later on since its perfectly related to the enterprise classification variable, thus including them both in a model might pose issues. We will sort it out later on. 
+
+We also have the number of hours worked. We expect that the more hours worked, the more productivity and thus the more profits generated. However, this needs not be the case as some business are more advanced and thus might generate more profitability even with lesser hours worked.
+
+```{r}
+#Total no of workers/enterprise classification..
+finscope_data_useful$EnterpriseClassification <- finscope_data_useful$TotNumWorkers
+finscope_data_useful$EnterpriseClassification <- ifelse(finscope_data_useful$EnterpriseClassification > 49,"Medium Enterprise",ifelse(finscope_data_useful$EnterpriseClassification  > 10,"Small Enterprise",ifelse(finscope_data_useful$EnterpriseClassification>0,"Micro enterprise","Own Account")))
+finscope_data_useful$EnterpriseClassification <- factor(finscope_data_useful$EnterpriseClassification,ordered =  TRUE, levels = c("Own Account","Micro enterprise","Small Enterprise","Medium Enterprise"))
+class(finscope_data_useful$EnterpriseClassification)
+str(finscope_data_useful$EnterpriseClassification)
+summary(finscope_data_useful$EnterpriseClassification)
+
+#Check the number of workers..
+unique(finscope_data_useful$TotNumWorkers)
+class(finscope_data_useful$TotNumWorkers)
+summary(finscope_data_useful$TotNumWorkers)
+
+#total hours worked
+class(finscope_data_useful$TotHoursWrk)
+summary(finscope_data_useful$TotHoursWrk)
+
+```
+
+#### Education Level
+
+Next, we deal with the education variable. This variable will also follow the patterns we have established above and the only major notable difference pertains to the fact that education like enterprise classification is also *ordered* and thus we set it to *TRUE.* The order for education is intuitive to follow as it starts with primary education and build up all the way to post-matric which is characterized by various levels such as an university degree or the other forms of post-matric training.
+
+This variable will also offer value in our understanding of the factors that contribute to the success of enterprises. We generally expect that businesses whose owners have a decent level of education, such as, at the least some high school education to contribute positively towards the growth of their businesses. The general assumption is that they have the adequate know-how to understand market opportunities, enter into contracts and make use of the available business services such as banking, computerized business systems, loan applications and many other factors relevant to the success of a businesses and are knowledge based.
+
+Further, we expect that education and training to be a good proxy for manager's competence, understanding of the industry in which the business is operating in, the market opportunities that exist in the market and how to optimally allocate capital and production facilities to take advantage of such opportunities. This is very important in the South African context as small enterprises will typically face intense competition from the core economy which is well organised. Furthermore, we expect that significant portion of companies that have owners with high level of education to operate businesses that are high tech, knowledge based and skills based, which require extensive training which turn tend to generate robust profits due to their sophistication.
+
+```{r}
+#Education level/ note, the education levels are ordered thus we ordered is true
+unique(finscope_data_selected$HighlevelEdu)
+finscope_data_selected$Edu <- factor(finscope_data_selected$HighlevelEdu)
+summary(finscope_data_selected$Edu)
+finscope_data_useful$ HighlevelEdu<- factor(finscope_data_useful$HighlevelEdu,ordered =  TRUE, levels = c("No schooling","Some primary school","Primary school completed","Some high school","Matric","Apprenticeship","Post matric qualification (diploma)","University degree (undergrad/postgrad/masters/honours)"))
+summary(finscope_data_useful$HighlevelEdu)
+str(finscope_data_useful$HighlevelEdu)
+unique(finscope_data_useful$HighlevelEdu)
+class(finscope_data_useful$HighlevelEdu)
+```
+
+#### To Whom the Business Sell to:
+
+We now shift our attention to the variables that pertain to whom the business sells to. Here, we have a bunch of variables such as selling to the government, selling to other small enterprises, selling to larger enterprises, and selling to private individuals. These variables might offer insights pertaining to customers which are important in driving business growth. This analysis expects that the bigger the institutions the business sells to, the more reliable they will be as customers and thus will be important in determining profitability. For example, private individuals are expected to be less valuable as customers and to be more variable compared to much larger customers like other businesses in terms of the revenue they bring in.
+
+This analysis expect that the following order will be followed in determining which customers are more important and thus reliable as sources of profitability. The order is expected to go as follows: larger enterprises, other small enterprises, government and then private individuals. Note, the size we alluded to above pertains to whether the customer is another business or a private individual, that is how big a customer is. This can be attributed to the fact that bigger customers will tend to have higher budgets compared to the smaller enterprises, and thus will be able to spend more. Furthermore, if a business sells to another business, its highly likely that the good or service it sells to that respective entity is critical to the survival of that particular business, or is an integral component to the functioning of that business that is buying.
+
+Note, in the construction of these variables, in one instance we just went straight to the *labels* and we did not specify the *level* argument. For instance in the construction of selling to government variable we went straight to specifying the labels and we did not specify the level. Whereas with other variables such as the one for selling to private individuals we also specified the *levels* argument. Well, in the instance where we didn't specify the *level* argument, we made sure that the labeling matches the default levels set by *R* by following the alphabetical order of *Yes* or *No* which were the original labels. This variable construction is similar to the other variables we have dealt with before in this analysis, a slight difference is the fact that we have labelled this variable, and again ensuring that these labels correspond the default levels set up by *R*.
+
+```{r}
+#Selling to whom variables...
+#Selling to government variable
+unique(finscope_data_useful$Gov)
+finscope_data_useful$Gov <- factor(finscope_data_useful$Gov, labels = c("Doesn't sell to government","Sells to government"))
+str(finscope_data_useful$Gov)
+summary(finscope_data_useful$Gov)
+
+#To other small enterprise
+unique(finscope_data_useful$otherSmallBus)
+finscope_data_useful$otherSmallBus <- factor(finscope_data_useful$otherSmallBus,labels = c("Doesn't sell to other small enterprises","Sells to other small enterpises"))
+str(finscope_data_useful$otherSmallBus)
+summary(finscope_data_useful$otherSmallBus)
+
+#selling to private individuals
+unique(finscope_data_selected$PrivIndv)
+unique(finscope_data_useful$PrivIndv)
+finscope_data_useful$PrivIndv <- factor(finscope_data_useful$PrivIndv,levels= c("YES","NO"),labels = c("Sells to Private Individuals","Doesn't sell to Private Individuals"))
+levels(finscope_data_useful$PrivIndv)
+str(finscope_data_useful$PrivIndv)
+summary(finscope_data_useful$PrivIndv)
+
+#Selling to other large business
+unique(finscope_data_useful$OtherLargeBus)
+finscope_data_useful$OtherLargeBus <- factor(finscope_data_useful$OtherLargeBus,levels= c("NO","YES"), labels = c("Doesn't sell to Larger enterprises","Sells to larger enterpises"))
+str(finscope_data_useful$OtherLargeBus)
+summary(finscope_data_useful$OtherLargeBus)
+
+```
+
+#### Is Business Only source of income
+
+Next, we look into the variable that probes whether a business is the only source of income or not. This variable contribution to our understanding of business performance is a bit complicated as it can be confounded by other factors. For example, households with own-account or micro-enterprises might also be recipients of social assistance grants, or the owners might be working part time at other jobs since these enterprises profitability might be limited, whereas the owners of the larger enterprises might have several businesses which provide alternative sources of income to these owners. However, the main relationship that is of major interest to this analysis is to see if reliance on a business as a source of income might contribute towards a positive business performance or not.
+
+We expect that, though the confounding issue might cloud our judgement and the model's ability decipher its influence from the other confounding effect might not be strong. However, we expect that those businesses that serve as the owner's only source of income to be a bit more successful. We expect these owners to pour in a considerate amount of energy and resources into them and ensure their success, as they rely on them as a source of income. Further, the more an owner spend time on a business, we expect that this will translate to experience in the market and thus subsequently better performances.
+
+```{r}
+#Is business only source of income
+finscope_data_useful$`IsBusOnlySrcInc?` <- factor(finscope_data_useful$`IsBusOnlySrcInc?`,labels = c("Business in not the only source of income","Business is the only source of income"))
+str(finscope_data_useful$`IsBusOnlySrcInc?`)
+summary(finscope_data_useful$`IsBusOnlySrcInc?`)
+```
+
+#### Keeping Financial Records and Computerised records
+
+Another variable we construct pertains to whether a business keeps financial records or not. Keeping financial financial is a very important aspect of a business and determining its performance. Keeping financial records can be a proxy for the accounting standards or lack thereof in the respective business. Proper records can ensure that the business is keeping track of the sources of its funds, is aware of its liabilities and assets at all times, and actively managing them. Good financial records also speak to the reliability of the data the business has to offer and whether we could reliably verify the businesses profitability and performance. These records can also go a long way in ensuring that the business owners have a good understanding of their business at any point in time, and thus are aware that its not leaking cash or the are frivolous expenses that don't bring much value to the business, and at all times there is knowledge of the areas that this business is making profits. Further, these records are of value to the investors and creditors to the business who, with their capital can aid the business to grow in leaps and bounds.
+
+The next variable relates to the previous variable we have dealt with, which looked at the presence or absence of financial records. Conceptually, this variable will be playing the same role as the previous one, in the sense that we will also be looking at whether a business keeps financial records or not. However, one major shift we expect will pertain to the quality of these financial records. Essentially, we expect the relationship between computerized financial records and business performance to be much more robust compared to financial records where it was not specified whether they are computerized or not. This thinking stems from the fact that computerized records will tend to be of generally higher quality and more standardized compared to other forms of recording that are not computerized. Furthermore, computerized financial records are easily transferable and less prone to error.
+
+The construction of these variables follows the pattern of the other variables above. We also labelled the variables with a label that corresponding to the default R levels.
+
+```{r}
+
+#Keep financial record/ awwww the default for the level is alphabetically...
+unique(finscope_data_useful$KeepFinRec)
+finscope_data_useful$KeepFinRec <- factor(finscope_data_useful$KeepFinRec, labels = c("Doesn't keep financial records","Keep financial records"))
+str(finscope_data_useful$KeepFinRec)
+summary(finscope_data_useful$KeepFinRec)
+
+#Computirized financial records...
+unique(finscope_data_useful$CompFinRecs)
+finscope_data_useful$CompFinRecs <- factor(finscope_data_useful$CompFinRecs, labels= c("Business does not keep computerized financial records","Business keeps computerized financial records"))
+str(finscope_data_useful$CompFinRecs)
+summary(finscope_data_useful$CompFinRecs)
+
+
+```
+
+#### Access to How many Insurance Products
+
+The next variable pertains to how many business insurance products each enterprise has access to. The construction of this variable was also an elaborate affair and involved invoking many functions. However, as elaborate as it was, we will not explain the process here due to the fact that the construction of this variable is similar to the technique we used for the variable which probed whether a business has access to how many business functions.
+
+The importance of this variable speaks to the risk attitudes of the business owners and if they have risk mitigation measures in place. Logic dictates that those businesses with the proper risk measures will tend to be more successful and perform better. The reasoning is two-fold, one, generally if a business has valuable inventory or machinery, if they take measures to protect such assets, then, in the long run, would be more profitable as should anything happen to such assets they would be covered, and thus, this would not break the flow of the business operations due to an adverse event.
+
+Another reason would stem from the viewpoint of investors or creditors'. An investor would generally when coming to a business try to avoid the so-called principal-agent problem, where the agent being the business if given a line of credit or investment capital would be reckless with such capital, and potentially act in a manner that is not consistent with the interests of the investors or creditors which are the principals. Thus, proper attitudes towards risk as demonstrated by taking out insurance can act as a costly signal to the investors or creditors that they are reliable and can be extended the line of credit or investment. And, through the peculiar way we have constructed this variable, the more insurance products a small enterprise has, the more costly the signal they demonstrate to the market and thus the more worthy of investments or credit they are, thus again over the long run can attract capital and grow, leading to relatively better business performance.
+
+The second variable which pertains to insurance also follows the same logic in its importance, however, its sets up to be a binary variable instead of being a count variable. There might be an issue of perfect correlation with the constructed variable, but that will be taken care of when we do correlation analysis.
+
+```{r}
+#Creating the insurance variable/ At least one form of business insurance...
+unique(finscope_data_useful$BusContInsOffEquip)
+finscope_data_useful$BusContInsOffEquip[finscope_data_useful$BusContInsOffEquip == "refused"] <- NA
+finscope_data_useful <- finscope_data_useful %>% mutate(BusContInsOffEquip = replace(BusContInsOffEquip,BusContInsOffEquip == "Have now",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(BusContInsOffEquip = replace(BusContInsOffEquip,BusContInsOffEquip == "Never had",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(BusContInsOffEquip = replace(BusContInsOffEquip,BusContInsOffEquip == "Used to have but dont have now",0))
+unique(finscope_data_useful$BusContSpecialisedToolsorMchinery)
+finscope_data_useful$BusContSpecialisedToolsorMchinery[finscope_data_useful$BusContSpecialisedToolsorMchinery == "refused"] <- NA
+finscope_data_useful <- finscope_data_useful %>% mutate(BusContSpecialisedToolsorMchinery = replace(BusContSpecialisedToolsorMchinery,BusContSpecialisedToolsorMchinery == "Have now",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(BusContSpecialisedToolsorMchinery = replace(BusContSpecialisedToolsorMchinery,BusContSpecialisedToolsorMchinery == "Never had",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(BusContSpecialisedToolsorMchinery = replace(BusContSpecialisedToolsorMchinery,BusContSpecialisedToolsorMchinery == "Used to have but dont have now",0))
+unique(finscope_data_useful$PrpStrBusPremIns)
+finscope_data_useful$PrpStrBusPremIns[finscope_data_useful$PrpStrBusPremIns == "refused"] <- NA
+finscope_data_useful <- finscope_data_useful %>% mutate(PrpStrBusPremIns = replace(PrpStrBusPremIns,PrpStrBusPremIns == "Have now",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(PrpStrBusPremIns = replace(PrpStrBusPremIns,PrpStrBusPremIns == "Never had",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(PrpStrBusPremIns = replace(PrpStrBusPremIns,PrpStrBusPremIns == "Used to have but dont have now",0))
+unique(finscope_data_useful$CrpIns)
+finscope_data_useful$CrpIns[finscope_data_useful$CrpIns == "refused"] <- NA
+finscope_data_useful <- finscope_data_useful %>% mutate(CrpIns = replace(CrpIns,CrpIns == "Have now",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(CrpIns = replace(CrpIns,CrpIns == "Never had",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(CrpIns = replace(CrpIns,CrpIns == "Used to have but dont have now",0))
+unique(finscope_data_useful$AccDamTransIns)
+finscope_data_useful$AccDamTransIns[finscope_data_useful$AccDamTransIns == "refused"] <- NA
+finscope_data_useful <- finscope_data_useful %>% mutate(AccDamTransIns = replace(AccDamTransIns,AccDamTransIns == "Have now",1))
+finscope_data_useful <- finscope_data_useful %>% mutate(AccDamTransIns = replace(AccDamTransIns,AccDamTransIns == "Never had",0))
+finscope_data_useful <- finscope_data_useful %>% mutate(AccDamTransIns = replace(AccDamTransIns,AccDamTransIns == "Used to have but dont have now",0))
+
+#Turning into numeric
+finscope_data_useful$BusContInsOffEquip <- as.numeric(finscope_data_useful$BusContInsOffEquip)
+finscope_data_useful$BusContSpecialisedToolsorMchinery <- as.numeric(finscope_data_useful$BusContSpecialisedToolsorMchinery,na.rm = TRUE)
+finscope_data_useful$PrpStrBusPremIns <- as.numeric(finscope_data_useful$PrpStrBusPremIns)
+finscope_data_useful$CrpIns <- as.numeric(finscope_data_useful$CrpIns)
+finscope_data_useful$AccDamTransIns <- as.numeric(finscope_data_useful$AccDamTransIns)
+
+#Summing up the rows
+finscope_data_useful$HaveAccesToHowmanyInsProd <- finscope_data_useful%>%
+  select(BusContInsOffEquip,BusContSpecialisedToolsorMchinery,PrpStrBusPremIns,CrpIns,AccDamTransIns)%>%
+  rowSums(na.rm = TRUE)
+summary(finscope_data_useful$HaveAccesToHowmanyInsProd)
+
+
+
+#Having insurance/Binary choice between having insurance and not having insurance
+unique(finscope_data_useful$HaveIns)
+finscope_data_useful$HaveIns <- factor(finscope_data_useful$HaveIns, labels = c("Don't have insurance","Have Insurance"))
+summary(finscope_data_useful$HaveIns)
+
+```
+
+#### Access to Financial Services, where a business get its credit and whether a business has received a business loan or not.
+
+The next variable pertains to financial services access. The variable has four levels and is not ordered as there is no meaningful way to order them. The levels are as follows, banked, have access to formal financial services such as micro-finance institutions, have access to informal financial services like loan sharks or friends, and the last group is not served.
+
+Again the importance of this variable pertains to the access to quality financial services which are essential in the smooth running of businesses. If a business is banked, this aids in establishing a structured and accurate financial trail for the business which helps it become attractive to potential investors or creditors. Also, access to these financial services can ensure that a business have secured ways of safe-keeping its cash which can go a low way in ensuring the sustainability of the business. Furthermore, the business through its established relationship with a financial services provider can gain access to other widely varying services besides banking, such as insurance products, lower interest rates, and help from these businesses to access newer markets.
+
+Furthermore, there's a plethora of other indirect benefits from making use of financial services, such as more efficient payroll systems, pension funds for the employees, the work injury compensation funds, and many other services which can boost staff morale, minimize the impact of work related injuries and litigation and many more benefits associated with having access to formal financial services. However, its worth noting that this variable might not be able to capture in its entirety the complex nature of the financial services offered by businesses, and this catch-all variable might be omitting some important information pertaining to the quality and complexity of the services these enterprises have.
+
+The variable which looks into where a business get it credit from below is also related to the variable we worked on above. This one speaks directly to the source of credit for the enterprises surveyed, instead of financial inclusion in general. The source of credit for each of these enterprises reveals a lot about these enterprises and the quality of these businesses. We expect, like in the instance of financial access that businesses that borrow from the much more formal sources of credit like banks and the formal sector in general will have better performance compared to those that have more informal means of borrowing. Besides the fact that borrowing from more informal sources of credit is much more risky and expensive, we expect that if a company can be offered formal credit then that should say a lot about the quality and competence of such business, and thus is a great signal that the business performs well, is organized and has all the proper financial, asset trail in order. Thus, we expect that if a business has accessed credit from sources such as Banks or formal sources of credit then such business will have significant positive business performance.
+
+```{r}
+#Probe into whether a business has access to financial services or not.
+unique(finscope_data_useful$OvrallFinAccess)
+finscope_data_useful$OvrallFinAccess <- factor(finscope_data_useful$OvrallFinAccess)
+summary(finscope_data_useful$OvrallFinAccess)
+
+#Where does the business get credit from..
+unique(finscope_data_useful$CreditBorrowingStrd)
+finscope_data_useful$SourceOfcredit <- factor(finscope_data_useful$CreditBorrowingStrd)
+summary(finscope_data_useful$SourceOfcredit)
+
+
+#Variable on whether an enterprise received a bank loan or not\
+unique(finscope_data_useful$BankLoan)
+class(finscope_data_useful$BankLoan)
+finscope_data_useful$BankLoan <- factor(finscope_data_useful$BankLoan)
+summary(finscope_data_useful$BankLoan)
+
+```
+
+#### Exporting products and importing supplies.
+
+Another two variables of interest, are one which probes whether a business exports its products internationally and the one which looks at whether a business sources its supplies from international suppliers or not. Now these two variables have the potential of aiding us to establish the relative complexity and sophistication of the product offerings of such businesses.
+
+This analysis assumes that a business for starters that have access to international markets will have the necessary expertise and competence in its product offering to compete in an international setting where it has to beat barriers such as regulation in different countries and different trade tariff systems. Furthermore, a business that has a presence in multiple markets is to a certain extent shielded from business fluctuations associated with the local markets, meaning they are diversified in their market access, and their profitability is not tied to one market and its whims. Thus, we expect that exporting to international markets should have a positive relationship with business performance.
+
+The other variable has to do with where the business gets its supplies from. A business that can get for suppliers from outside of its immediate geographical area signals that it possesses the necessary know-how to scour for resources from a wide range of sources. This might translate to efficiency in ways in which the business renders its services or produces its goods as scouring for components and not accepting the most immediate suppliers signals resourcefulness. Also, searching for supplies from other countries can also aid in reducing costs of operations as importing can give access to the most competitive pricing from countries that have already developed the scale to develop such products. Thus, importing should be associated with positive business perfomance.
+
+Now, the construction of these variables was similar to the other variables we have constructed above, thus we will spend no time in motivating for their construction.
+
+```{r}
+#Exporting
+unique(finscope_data_useful$ExptoCUST)
+finscope_data_useful$ExptoCUST <- factor(finscope_data_useful$ExptoCUST, labels = c("Don't Export to outside of SA","Export to outside of SA"))
+summary(finscope_data_useful$ExptoCUST)
+
+#Importing supplies/ having suppliers outside of SA
+unique(finscope_data_useful$SuppOutofSA)
+finscope_data_useful$SuppOutofSA <- factor(finscope_data_useful$SuppOutofSA, labels = c("Don't have suppliers out of SA","Have suppliers out of SA"))
+summary(finscope_data_useful$SuppOutofSA)
+
+
+```
+
+#### Does Business offer goods on Credit
+
+Next, we look at the variable which look into whether a business offers goods on credit or not. With this one, we expect that there would be a positive relationship between offering goods on credit and business performance. The logic for this goes as follows, if a business has the capacity to extend goods on credit, then this greatly expands the profit streams for the business. Though the risk of default also increases, if a business has robust credit risk management system, offering goods on credit will tend to remove the constraints on the business from relying from only customers who can pay now. However, the success of this strategy will be contingent on many confounding factors such as nature of the products offered on credit, to whom where these goods offered to, was it a government client or a private clients or other businesses and what mechanisms the business has to recuperate the credit and risk management policies in the business which informs the business's appetite for credit and which customers should be favored to be extended credit to.
+
+The construction of this variable was however a straightforward affair. But, something that is a bit different with this variable was that the variable has three levels which is a deviation from the binary variables we usually work with.
+
+```{r}
+#Offering goods on credit
+unique(finscope_data_useful$OffGoodCred)
+finscope_data_useful$OffGoodCred <- finscope_data_selected$OffGoodCred
+class(finscope_data_useful$OffGoodCred)
+finscope_data_useful$OffGoodCred <-  factor(finscope_data_useful$OffGoodCred,labels = c("No","Yes always","Yes, sometimes"))
+levels(finscope_data_useful$OffGoodCred)
+summary(finscope_data_useful$OffGoodCred)
+```
+
+#### Number of Years Operating
+
+Next, we look at the variable which looks into how many years a business has been operational. Again, we expect a positive relationship between businesses that have been around for many years and profitability. The more years a business has been operational, the more experience we assume that it will have in that particular market and thus be able to withstand that particular market fluctuations. Further, we assume that many years in business, the business also has a clear view of what decisions and investments drive profitability and which don't. And, also the fact that a business might have been business for so long, we expect that it should have built a sort brand awareness in that market which translate to a customer base the business has serviced for years. All these factors, this analysis expect that will translate into profitability and business success in the long term.
+
+The second variable relates to the age of the business owner. We expect that the older the business owner is, the more experienced they are in terms of running their business, and thus the more profitable such businesses will tend to be.
+
+The construction of this variable was different from the other variables we have since it was not given in the initial data-set. First, we had to change the data class from being a character into a numeric variable, since a year is a numeric data type. Then, to get the age of each enterprise, we had to minus from 2010, the year in which this data-set was collected the variable *YearBusStart* which is the variable that stores the data when the business started. The difference between these two then gave us the number of years these businesses have been operational.
+
+```{r}
+#Number of years business operational
+class(finscope_data_useful$YearBusStart)
+finscope_data_useful$YearBusStart <- as.numeric(finscope_data_useful$YearBusStart)
+summary(finscope_data_useful$YearBusStart)
+finscope_data_useful$AgeOfBusiness <- 2010 - finscope_data_useful$YearBusStart
+summary(finscope_data_useful$AgeOfBusiness)
+
+#Age fix
+class(finscope_data_useful$Age)
+finscope_data_useful$Age <- as.numeric(finscope_data_useful$Age,na.rm = TRUE)
+summary(finscope_data_useful$Age)
+unique(finscope_data_useful$Age)
+```
+
+#### Having Insurance Against Theft, Security measures and Whether has suffered crime 12 months prior.
+
+Now we shift our attention to the variable which looks into whether a business has access to insurance against crime or not. This insurance product is also critical to assess, and its especially the case in the South African context where crime in the literature has been cited as a major hindrance to business success due to the fact that SA has relatively high crime rates. Crime acts as a negative deterrence to business growth by dissuading business owners from investing in their businesses such as buying relatively more expensive business machinery due to fear that such assets might be at risk of being stolen or vandalized by criminals. This reluctance to invest in these businesses by the business owners translates into poor production choices being made on how to render services or produce products and thus leading to lower profitability. Furthermore, without insurance, even when the business has invested in such assets that bring about efficiency, if they get stolen, it might take longer to replace them leading to poor business performance or the owners might not be able to replace them at all. Thus, insurance, especially for the smaller enterprises that are disproportionally impacted by crime might mitigate the negative effects of crime. Thus, this translates to owners investing in their businesses with the hope that they would cover their losses should any adverse event occur.
+
+The second variable also relates to crime and probes whether a business has security measures or not. This variable to some extent seek to do the same job as the previous one. But, what it does differently is to check if the business has practical security measures besides insurance, such as burglar systems, alarm system or subscription to a armed response service. Again, this variable does not give an idea of how robust these security measures and its highly likely that different enterprises depending on their level will have different approaches to security and its intensity. Note, overall picture, besides the quality of security measures, is that, businesses that have a proactive approach to crime will tend to fare better at withstanding its impact, and subsequently will be robust and be able to grow and generate profits.
+
+The third variable also relates to crime and the logic that we have just outlined above also applies to it. However, this variable offers something a bit different and might help our model get a better sense of what informs business performance. Businesses that suffered from crime would probably have had their critical assets in disarray and thus be unable to perform as well they should. This variable if there's enough variability in the data might shine light on the significance or lack thereof of crime affecting business performance after it has occurred. It could be that crime is not as much of an issue as we had initially thought.
+
+```{r}
+#Have insurance against theft
+unique(finscope_data_useful$ClaimInsforTheft)
+finscope_data_useful$ClaimInsforTheft <- factor(finscope_data_useful$ClaimInsforTheft, labels = c("Don't have insurance claim against theft/crim","Have Insurance claim against crime or theft"))
+summary(finscope_data_useful$ClaimInsforTheft)
+
+#fix having security measures
+finscope_data_useful$`HavingSecurityMeasures` <- factor(finscope_data_useful$`HavingSecurityMeasures`,labels = c("Don't have security measures","Have security Measures"))
+str(finscope_data_useful$`HavingSecurityMeasures`)
+summary(finscope_data_useful$`HavingSecurityMeasures`)
+
+#fixingsufferedtheft/crime
+unique(finscope_data_useful$sufferedCrimeortheft)
+finscope_data_useful$sufferedCrimeortheft <- factor(finscope_data_useful$sufferedCrimeortheft, labels= c("Business did not suffer crime or theft in the last 12 months","Business suffered crime or theft in the last 12 months"))
+str(finscope_data_useful$sufferedCrimeortheft)
+summary(finscope_data_useful$sufferedCrimeortheft)
+
+
+```
+
+#### Business Registration (Informality)
+
+Now, this analysis shifts its focus towards whether a business is registered or not registered. This analysis will use this variable as a proxy for whether a business is an informal or a formal business. Why this distinction?, well it turns out this is very important in the context of South Africa where there's relatively a larger portion of the smaller enterprises being informal. The relatively smaller enterprises in South Africa can be divided into two, namely survivalist enterprises whose owners tend to be poorer, have a low skill profile and if given the opportunity would rather opt for opportunities in the formal sector. These types of enterprises will tend to be informal in their operations and lack the sophistication their larger counterparts have. Furthermore, these enterprises will also tend to generate relatively small incomes as they tend to go for business opportunities that usually have low barriers to entry, require little to no skill profile or start-up capital, thus they generally face stringent competition from the core economy.
+
+On the flip-side, still within these relatively small enterprises , you would find the so called micro-enterprises or growth enterprises. These enterprises would tend to be a bit more formal in their approach to business and tend to be more entrepreneurial driven and will respond to local opportunities for growth that exist in the market. Thus, these enterprises are much more motivated by profiteering instead of just going to business for survivalist reasons or livelihood. Therefore, these enterprises would tend to have higher prospects of growing into more profitable enterprises and being fully fledged formal enterprises. You'd typically find these businesses being you local tuck-shops, welding businesses, businesses that sell alcohol and many more.
+
+Now, this distinction is really more important for the relatively smaller enterprises because its rarely the case that you going to find the relatively larger enterprises without being registered or being informal. Also, its important to note that this variable is not a perfect proxy for formality as it might miss some growth enterprises that are not registered.
+
+Again, I will not expand on the construction of this variable since it was already covered in similar variables.
+
+```{r}
+#Business registration
+finscope_data_useful$IsBusRegistered[finscope_data_useful$IsBusRegistered == "Dont know"] <- NA
+unique(finscope_data_useful$IsBusRegistered)
+finscope_data_useful$IsBusRegistered <- factor(finscope_data_useful$IsBusRegistered, labels = c("Business is not registered","Business is registered"))
+str(finscope_data_useful$IsBusRegistered)
+summary(finscope_data_useful$IsBusRegistered)
+
+```
+#### Making a Tender Submission.
+
+The final two variables relate to the whether these enterprises had before made a tender submission and if such a tender submission was successful or not. Again, this variable will provide us with some important insights when it comes to assessing business performance. First, its reasonable to assume that if a business is in a state to submit a tender proposal, then that business is relatively good structured and has the expertise and competence to some extent to carry out the tasks outlined in the tender they are applying for. This is a great proxy for managerial competences and in general the competence of the respective enterprise. This is the case due to the fact that if a company takes the initiative to apply for a tender, then that company and its leadership reasonably has an understanding of the industry its operating in.
+
+The second variable looks into whether a firms' bid for a tender was successful or not. This second variable essentially enriches the first, as a company whose tender bid was successful validates that indeed that respective company is competent. Furthermore, a company that does not only identify lucrative market opportunities and bid for them, but also win such bids is a great great company which will tend to be profitable. Further, having successful tender application also bear testimony on the managers competence, to identify good opportunities and execute on them successfully is a great proxy for competence. Furthermore, a successful tender applications translate into revenues for the business which contributed to profitability or good business performance.
+
+```{r}
+
+#TenderSubmission
+unique(finscope_data_useful$SubmittedTenderProp)
+finscope_data_useful$SubmittedTenderProp<- factor(finscope_data_useful$SubmittedTenderProp, labels = c("Did not submit a tender application in the last 12 months","Submitted a tender application last 12 months") )
+str(finscope_data_useful$SubmittedTenderProp)
+summary(finscope_data_useful$SubmittedTenderProp)
+
+#TenderSucc
+class(finscope_data_useful$TenderSucc)
+unique(finscope_data_useful$TenderSucc)
+finscope_data_useful$TenderSucc[finscope_data_useful$TenderSucc == "0"] <- "Did not apply"
+unique(finscope_data_useful$TenderSucc)
+finscope_data_useful$TenderSucc<- factor(finscope_data_useful$TenderSucc)
+str(finscope_data_useful$TenderSucc)
+
+
+```
+
+
+
+
+
+
+## DATA AND COLUMN CLEANING:
+
+#### Ensuring Variables have consistent names
+
+First, we look at the dataframe we are working with to make sure that all the variables are of the form/datatype we expect them to be and that there are no variables that we missed when we were working with the dataset. From the code below, it seems like the most salient variables are encoded appropriately, and thus, we move forward with our analysis.
+
+```{r}
+#checking for data types/ seems all the data types are of the desired type...
+sapply(finscope_data_useful,class) 
+
+```
+
+Next, we look whether there has been any duplicates in the process of naming the variables. We use the code *anyDuplicates* to do this , which checks the names using the *names* column to check if there are any names that are duplicates or not. And from the code below, there are zero duplicates from the results.
+
+Then, we also use the pipe operator *\$%\>%* to pipe the data to the *remove_empty* function to remove any empty rows or columns.
+
+```{r}
+#Seems we are all good in terms of duplicates/there's zero duplicated column names.
+anyDuplicated (names (finscope_data_useful))
+
+#Removes any empty rows or columns from the data.
+finscope_data_useful <- finscope_data_useful %>% remove_empty(c("rows", "cols"))
+
+
+```
+
+```{r}
+names(finscope_data_useful)
+```
+
+Now, we make sure that the column names are consistently structured and any characters that dirty up the column names are removed from the data. This function will make the column names more descriptive, removes any unnecessary spaces and replaces them with "_". For instance, *first name* would be cleaned into the much nicer version of *first_name* which is cleaner and consistent with the other values. And when we call the *names* function, we see that the names of the columns are nicely and consistently formatted.
+
+```{r}
+#make the columns more consistent and descriptive
+#Make the names more constitent and easier to work with/removes any inconsitent characters that dirty up the variables/puts slash bars in
+#between names, for example, will put replace first name with first_name..
+finscope_data_useful <- finscope_data_useful %>% clean_names()
+names(finscope_data_useful)
+```
+
+Here, we ensure that all the missing values are encoded as *NA*, instead of all the other stuff that usually the missing bits are encoded as. To ensure we are able to appropriately deal with the missing bits in the data.
+
+```{r}
+#convert values like "NA", "NULL", or "" to NA
+finscope_data_useful <- finscope_data_useful %>% replace (., . == c ("NA", "NULL", ""), NA)
+
+```
+
+
+
+#### Removing variables that don't have variability
+
+Here, in this bit, we extract the most important features that we will use when we build our model, and we then pass them to a new dataframe called finscope_Useful_variables.
+
+```{r}
+finscope_Useful_variables <- finscope_data_useful %>%
+  select("location","province","businesstype","wherebusoperate","ownrent",      "tot_hours_wrk","tot_num_workers",                                         "priv_indv","other_small_bus","other_large_bus","gov",                         "tender_succ","bank_loan", "bus_turn_monthly","bus_net_profmnthly","age",          "highlevel_edu","is_bus_only_src_inc","keep_fin_rec","ovrall_fin_access","having_security_measures","suffered_crimeortheft"     ,"claim_insfor_theft","is_bus_registered","submitted_tender_prop"             ,"comp_fin_recs","owner_rentor_own_priv_res","expto_cust","supp_outof_sa","have_ins","off_good_cred","have_accesstohowmanybusfuncs","enterprise_classification","have_acces_to_howmany_ins_prod","source_ofcredit","age_of_business")                      
+
+```
+
+Now, in this part of our analysis we are ensuring that we drop any unused levels, ensuring that each variable has levels that can also be found in the data set. Thus, we are essentially avoiding having variables with more levels than can be collaborated by the data. Thus, we will avoid the issue of having variables with only one variable, or too few observations per category.
+
+```{r}
+
+sapply(finscope_Useful_variables, function(x) if(is.factor(x)) length(levels(x))) #Ensure that all the variables have the right number of levels
+
+finscope_Useful_variables <- droplevels(finscope_Useful_variables)
+str(finscope_Useful_variables)
+```
+
+From the above code, it should be that everything is fine, but when I try to run regression, we get the error that have a variable that has only one level. This issue might caused by a variable that has too few observations per category, but however, the above code can't pick it up because its not an empty level per se, but rather has too few observations.
+
+To solve this issue below, we will iteratively add one factor variable at a time until we run into the error.
+
+After this process, we find that the variable which checks for claiming for insurance for theft is the one that causes the error, thus has to be reviewed.
+
+```{r}
+#WORK ON THE DATA CLEANING ASPECT..
+finscope_OutClean <- finscope_Useful_variables
+#model1 <- lm(bus_net_profmnthly~province + enterprise_classification + other_small_bus + gov + priv_indv + source_ofcredit + claim_insfor_theft ,data= finscope_OutClean)
+#summary(model1)
+
+
+```
+
+In this analysis when we run regression on the data, we have had issues with the model as one of the variables keeps on causing errors and collapsing the model. Turns out that the variable that was collapsing the model was the one that looked into whether businesses claim insurance for theft, and in one of the categories had only 2 observations thus this warranty we drop it from the model. It was hard to be picked by the *droplevels* since it was not completely empty. However, there is little variability in the variable and thus can't be picked up and included.  
+
+As seen below, the variable has only 2 observations for *Have Insurance claim against crime or theft*. 
+
+```{r}
+#Dropping the variable.
+table(finscope_OutClean$claim_insfor_theft)
+
+
+finscope_OutClean <- subset(finscope_OutClean, select = -claim_insfor_theft)
+```
+When we run our model below, which will act as the basis model we build on top of, the model runs fine and we don't run into any issues.
+```{r}
+model1 <- lm(bus_net_profmnthly~.,data= finscope_OutClean)
+summary(model1)
+
+```
+
+## OUTLIER DETECTION AND REMOVAL IF APPROPRIATE:
+
+
+#### Definition of outliers
+
+Now that we have decided on a base model to make use of to understand the important predictors of business performance. We will now shift our attention to outlier detection using this model as the basis. By outliers, we are specifically referring to those data points in the data we are building our model with that tend to deviate significantly from the rest of the data points. The presence of such points can give us issues in model building as they tend sway the model fitted into the data towards themselves, and thus giving us a false sense in trying to figure out which variables are important. If the outliers are not properly handled, they can skew the results of our model leading to invalid hypothesis tests that were run on the statistics estimated from the data.
+
+There are many ways to think about outliers and the effects they can have on our model. For one, we can have the so called global outliers. These sort of outliers are typically due some measurement errors, data entry errors or some very unusual events that deviate significantly from other values. Usually, we usually just remove these from our model and replace them with some imputed value or we let go completely of that row by doing lit-wise deletion as they tend to be obvious erratas or very rare events which give little insights about the general outlook of things. 
+
+Another view of outliers relates to the so called contextual outliers, and its highly likely that contextual outliers will be a high feature in this analysis. These outliers, differing from the ones' we have outlined above are not due to errors or extremely rare events but rather have to do with the dataset itself. These variables are only outliers in a specific context but overall their behaivour is normal or can be explained. For instance, when we look at this data-set which consists mostly of own account enterprises, when the enterprise in question is a medium enterprise, they might exhibit high deviance in their values i,e profits, but are overall normal when we consider them in the context of medium enterprises since medium enterprises generally rake in high profits. However, when these medium enterprises are grouped with own account enterprises, they'll tend to exhibit characteristics of outliers.
+
+Now, there are many operations we will run in this analysis to establish if certain data points are outliers or not. Once we have established that there are outliers, we have to further establish if those are influental outliers or not. It is usually the case that though certain points are outliers, however, they are not influential or significantly sway the model. Then, if that is the case, then they are not considered an issue. But what are influential points?, Influential points are the points that have a large impact on the regression results. They have the potential effect of swaying the slope, significance of the variable, and the regression line fit if they are removed or added into the model.
+
+Note, the are generally two ways in which values can be outliers, they can either be outliers in the explanatory variable or the y-variable, i.e have high business profits. Or outliers in the x-variables/predictor variables which are called high leverage points, which are usually problematic and can have more influence over the regression fit line. If you have a mixture of outliers that are deviant in the y-axis and are also high leverage points, then we have a potentially dangerous concotion, which has the potential to be influential, thus can sway the model significantly.
+
+
+#### Studentised residuals
+
+For our analysis, let's first look at outliers in general, without checking if they are influential or not. To do this, we make use of a method called the studentized residuals/t-distribution which works by dividing the residuals (the residual is simply the difference between the observations and its predicted value from the model) by the estimated std deviation of the sampling distribution of the residuals, where if the residuals are significantly larger than the std dev, tells us that the data point is an outlier. We generally expect the ratio of the residual to the std dev to be relatively a small value, and if we observe a value larger than absolute 3, more succinctly, a value that is more than three std deviations away from the mean of the sampling distributions of the residuals, then we have an outlier.
+
+The code below works to detect such outliers from our model and appropriately deal with them.
+
+```{r}
+#Get the t-values 
+rstud1 <- rstudent(model1)
+plot(rstud1)
+
+#Put an abline to signify the significance points.
+abline(a=3, b=0, col="red")
+abline(a=-3,b=0, col= "red")
+
+identify(rstud1)
+```
+
+Using identify() function and the which() function, we are able to identify the values that are potentially outliers, and we can see this is an extensive list and its highly likely that they are contextual outliers. Thus, to ascertain this, we will do a visual inspection of these values to see if they are not outliers as a result of errors in the data collection process.
+
+```{r}
+#Get all the values who t-values are above 3 in absolute terms
+which(abs(rstud1) > 3)
+```
+
+```{r}
+finscope_Outliers <- finscope_OutClean[c(205, 312, 797, 1409, 2339, 3047, 3136, 3321, 4166, 4194, 4667, 4877, 4977, 4999, 5113, 5236, 5412, 5471, 5503, 5565, 5570,117, 177, 423, 718, 1167, 1519, 1570, 1659, 2014, 2027, 2233, 2324, 2354, 2370, 2421, 2458, 2531, 2550, 2560, 2577, 2580),]
+
+view(finscope_Outliers)
+```
+
+Upon visual inspection, indeed we don't see any obvious errors from the data, from data collection or recording, thus there are no global outliers. However, more diagnostics need to be done to conclude that these values are influential and thus unduly pulls our model, leading to skewing of the hypothesis tests run on the parameters estimated from this data.
+
+#### High Leverage points
+
+First, we check for high leverage points, to see if there is no deviant predictor values. High leverage points have the potential of swaying the line of best fit and thus affect the hypothesis tests on the parameters.
+
+```{r}
+#However, more diagnostics need to be done to conclude indeed that these values are influential and
+#Unduly pulls our model.
+
+
+#Lets check for high leverage values:
+lev1 <- hatvalues(model1)
+thresh <-  4*(29/5676)
+
+plot(lev1)
+abline(h=thresh, col = "red")
+```
+
+From the leverage plot above, it does't really give any sense of which points are high leverage points, and its very unstable as it gives many points as being high leverage. The abline is also not giving any insights, even after relaxing the constraints. Thus, more still need to be established beyond looking at leverage.
+
+#### Cooks Distance
+
+Thus, next we look at influence by looking at cook's distance. Cook's distance is a measure of influence, which is a composite measure of outlierness on the y-axis and high leverage. Points that are influential have a high possibility of swaying the model thus affecting the hypothesis tests. As a rule of thumb, points that have cook's distance that is bigger than 1 are deemed to be sufficiently influential such that they should be removed from the model.
+
+The code below calculates cook's distance, and points above the red abline will be deemed as influential, and thus upon inspection and testng, they will be removed from the model.
+
+```{r}
+cook1 <- cooks.distance(model1)
+plot(cook1)
+abline(a= 1, b=0,col = "red")
+identify(cook1)
+```
+
+```{r}
+which(cook1 > 1)
+```
+#### Outlier Removal
+
+Now, we have our influential points using cook distance. We see three values which are above the 1 threshold for cook's distance, and thus will be removed from the model. Below, we run a visual inspection of these values to assess what they are and if there's any context we can derive from looking at them before we move further in our analysis.
+
+```{r}
+finscope_outliers <- finscope_OutClean[c(1167,2324,2550),]
+head(finscope_outliers)
+view(finscope_outliers)
+```
+
+There's really no major difference between these values and other values in the dataset that make them seem to have an undue influence in the model beyond the fact that they are being singled out by cook's distance.
+
+Here below we remove these outliers values from our model and thus conclude our work on dealing with outliers. And next, we deal with multicollinearity in the data.
+
+```{r}
+finscope_Outclean2<- finscope_OutClean[-c(1167,2324,2550),]
+```
+
+
+
+## CORRELATION ANALYSIS:
+
+Next, we will run some correlation analysis to figure out which of the variables are correlated significantly. Correlation shows the extent to which two variables are associated with each other, that is, when variables changes, the other variables changes in response to the correlated variable. Note, the could either be negative correlation where an increase in one variable leads to a decline in another, or positive correlations where an increase in one variable is associated with an increase in another. We use scale of -1 to 1 to explain correlations, with values close to 1 or -1 associated with a strong correlation/association with lesser values in absolute terms (that is closer to 0 in absolute terms) associated with a lower intensity in correlations. Note, one thing about correlations, they only tell us about the above-mentioned relation, but does not give us any conclusive causal connection between the two variables, hence it then becomes important to establish the true nature of the relationship between the two variables, and not rely on the correlation value as many issues can be concealed by a high correlation value. In essence, there's a famous phrase, *correlation does not imply causation*.
+
+One such issue that comes with high correlations and is detrimental to the proper function of our model, is the issue of multicollinearity. This occurs in a regression model when one of the predictor variables are highly correlated, or are highly linearly related to one another in the model. Though correlation between predictor variables is expected, multicollinearity refer to an excessive form of this correlation which could be a result that one of these variables are simple linear combination of each other. If there is an instance of multicollinearity in the model, though the overall predictive power of the model will be intact, there could be an issue with individual variables and their stability in the model. Multicollinearity in the preditor variables can imply that one of the variables are redundant as the presence of one other variable has done all the explanatory work of the two variables. The presence of this multicollinearity can affect the choice of predictors in the final model, cloud our judgement on the precise effect of certain variables on our predicted variable and can cause the coefficient of predictors to be unstable in the presence of multicollineraity thus less reliable, more sensitive and erratic to minor changes in the model, i.e the removal of variables.
+
+To detect collinearity and by extension multicollinearity, we will be making use of the Varianace Inflation Factor (VIF) technique. The VIF is the ratio of 1 over the difference between one and the coefficient of determination (R²). Note, the coefficient of determination measures the amount of variation in the model that can be explained by the model relative to the simplest model possible, which is the mean model. If R is close to 1, then that model explains a lot of the variation in relation to the base model. Now, VIF works this way, it alternately makes each of the predictor variables the y-variable, and calculates R² for each of these models. Then if the ratio is larger than 10, then this calls for concern, or in other words it indicates a high correlation. Why?, well the more difference between 1 and R², then the bigger the value of R² indicating that one of the variables in the model is highly correlated with the explained variable, thus the more the difference, thus the bigger the value it'll be when divides 1. Thus, the bigger the value of VIF, the bigger the correlation between x-variable in that particular iteration and the another x-variable in the predictor space.
+
+```{r}
+model2 <- lm(bus_net_profmnthly~.,data= finscope_Outclean2)
+
+#vif(model2)
+
+```
+
+From the code above, we are getting an error which disallow us from using the function to find highly correlated variables. Turns, the error is due to having a variables that has a R² of 1, that is perfect correlation, thus crashing the equation. This is due to having a variable which is a linear combination of another variable in the model, thus leading to a perfect correlation. VIF is not powerful enough to handle perfect correlation, though it can handle high correlation. To sort this issue, we use the *alias* function to find such variables and possible remove them.
+
+```{r}
+alias(model2)
+```
+
+From the code above, it seems having submitted a tender application in the last 12 months and having a tender application being yes or no are perfectly correlated with each other. This makes sense, since in order for your tender application to either be successful or not, it must have submitted anyway, which renders these two variables perfectly correlated with each other.Also, since the variable *tender_succ* also makes provision for the instead of not having submitted a tender proposal, thus this renders the *submitted_tender_prop* variable useless, since the above variable makes all the provisions. See on the code below where the category on *Did not submit a tender application in the last 12 months* and *Did not apply* are equal.
+
+```{r}
+table(finscope_Outclean2$tender_succ)
+table(finscope_OutClean$submitted_tender_prop)
+```
+
+Thus, from our model we will remove the variable on having *submitted a tender application*, as we feel it should be made redundant by the other variable, and we believe that companies that being successful or not is a much more robust predictor of business performance than mere applying. And since the remaining has also taken into consideration the categories of the original variable we are removing, then we have dealt with the redundancy.
+
+```{r}
+finscope_Outclean2 <- subset(finscope_OutClean, select = -submitted_tender_prop)
+
+```
+
+Now that we have removed the problematic variable from the model, we can now run the model and detect any redundancy or highly correlated variables in the model which can cause some of the variables to be unstable thus affect the significance tests.
+
+```{r}
+model3 <-  lm(bus_net_profmnthly~.,data= finscope_Outclean2)
+summary(model3)
+
+```
+
+```{r}
+vif(model3)
+
+```
+
+From the model we have run above, we see that two variables have concerning VIF values which are above 5, which are *enterprise_classification* and *tot_num_workers*. Now it makes logical sense why these two variables are problematic in our analysis. This pertains to the fact that *enterprise_classification* was constructed from the *tot_num_workers* variable, hence it makes sense that we have such a high vif score. We will remove the *tot_num_workers* variable since we are interested in also analyzing the different classes of enterprises and the effect each have on business performance. This would be highly valuable to policy makers and or investors who are interested in the size of businesses to invest to and the support required by each.
+
+```{r}
+finscope_Outclean3 <- subset(finscope_Outclean2, select = -tot_num_workers)
+
+
+
+
+
+```
+
+Nice, now we have dealt with perfectly correlated values and other variables which have high multicollinearity and thus introduced redundancy, we can then move forward with our analysis.
+
+
+## Dealing with missing values using imputation...
+
+#### What is Imputation
+
+Now we shift our focus in dealing with the missing values in our dataset and ways to solve this issue. There are many reasons as to why data may be missing, one maybe arising due to mistakes in the data collection process, data privacy concerns or the most common, which is item non-response where a participant refuses to respond. Now the reason for the non-response is also as important, but essentially, we hope that there is no pattern in the reasons why the respondents chose to omit the question, thus the data is missing completely at random.
+
+There are many way to deal with missing data, assuming that the data is missing at random. One of the ways is to apply litwise deletion which deletes all the cases of missing observations, though some rows may have missing data in only a few columns, litwise deletion will remove the entire row. Thus, its clear utilizing litwise deletion can throw away a lot of valuable information which decreases the statistical power of our analysis. Further, if the data is not missing randomly, deletion of a portion of the data may weaken our model's ability to predict/model certain instances of the world, also lead to biases in the coefficients of our model and thus a misleading view of the world we are trying to understand.
+
+Thus, this supports the logic for imputation is that some columns may be missing data in a few rows and not other rows thus deleting some of these rows may lead to less data and more biases.
+
+
+#### Imputation Process including the Predictive Mean Matching procedure
+
+There are many imputation procedures that can be used but this analysis will be making use of Predictive Mean Matching imputation using the mice package in R. This method is intuitive, solves the issue of bias and avoids throwing away data which is useful in our analysis. Predictive Mean Matching is a very smart way of doing imputation. It does this by running a regression model on the column with missing values as the target variable, using the other columns to run this regression with as the explainers. If these columns have missing values too, means of those columns are used as the place holder whilst regressing over the other column that is the target in that instance, then those means are replaced when its that columns' turn to be predicted. For the random element in the data, its assumed that the errors are random, independent and identically distributed and their distribution follows a a normal distribution, and past values are used to pick the random element. This process is run multiple times and is shown as *maxit = 60* in the mice formular, where the iterative is done 60 times to have a robust and unbiased regression errors.
+
+Now the process I have specified above is the stochastic regression for imputing values and it has some serious drawbacks, one, the model can predict some implausible values, such as negative values. Also, if the underlying data is heteroscedastic, the model above would fail to pick it up as it would assume that the stochastic element variance is constant overtime when its not. i.e it will have given x, assume the variance remain constant over x, whereas in reality it may be that as x changes, the variance changes.
+
+PMM is a major innovation over the stochastic regression imputatation as it after doing the predictions, then on the basis of the predictions, will look for similar predicted values, group them and them randomly draw from them to replace the missing value. This ensure that the original distribution of the data is preserved.
+
+Note, the process is the same for categorical data, and one major difference pertains to the model used to predict the missing values, with numerical data using the regression model whilst the categorical data using the logistic data if its a binary and the multi-modial logistic regression model for the multi-category instance.
+
+```{r}
+
+imputed_finscope_data <- mice(finscope_Outclean3,m= 1,maxit = 60,printFlag = FALSE, seed = 1234)
+
+
+```
+
+```{r}
+imputed_finscope_data = complete(imputed_finscope_data, "long")
+
+```
+
+Now, lets visualize the distribution of the original data and the imputed values to show that indeed that the data has preserved its distribution.
+
+```{r}
+# Add a row number column to both datasets
+finscope_Outclean3 <- finscope_Outclean3 %>% mutate(row = row_number())
+imputed_finscope_data <- imputed_finscope_data %>% mutate(row = row_number())
+
+# Join the original and imputed datasets by row number
+joined_data <- left_join(finscope_Outclean3, imputed_finscope_data, by = "row", suffix = c("_orig", "_imputed"))
+
+# Create a new column to indicate whether the profit value is observed or imputed
+joined_data$profit_type <- ifelse(is.na(joined_data$bus_net_profmnthly_orig), "Imputed", "Observed")
+
+# Create a scatter plot of profit versus time, with different colors for observed and imputed values
+ggplot(joined_data, aes(x = .id, y = bus_net_profmnthly_imputed, color = profit_type)) +
+  geom_point() +
+  labs(x = "id", y = "Profit", color = "Profit Type") +
+  theme_bw()
+
+```
+
+Indeed from the plot above, we see that the two sets of data, the imputed and the observed value both show similar distribution and pattern, thus we consider our imputation exercise as a success..
+
+Now that we are done with our imputation exercise, we shift to dropping some of the variables we created during the imputation process and we go on further with our analysis.
+
+```{r}
+imputed_finscope_data2 <- subset(imputed_finscope_data, select = -c(.id, row, .imp))
+
+```
+
+```{r}
+modelA <-  lm(bus_net_profmnthly~.,data= imputed_finscope_data2)
+summary(modelA)
+
+
+```
+
+```{r}
+library(sandwich)
+coeftest(modelA, vcov = vcovHC)
+
+
+```
+
+
+
+## Fixing non-linearity..
+
+Below, we will plot the numerical variables in our analysis to check for the normality assumptions on our variables by plotting their distributions. We will also check how far are the largest values in the distributions are from the bulk of the data, which may lead to our distributions being asymmetrical, for example, larger values might pull the distribution towards the right, shield the distribution of the larger values. Thus, we might need to transform our variables or change the scale with which we are analyzing our data to get a much more symmetric and normally distributed values.
+
+To fix this issue, we might need to log-transform our variables of interest such that we dampen the effect of the large values of our variables in skewing our distributions. This transformation will then lead to a much more symmetric and normal distribution of the variable, which will then be more in line with the assumptions of our model that the variables are normally distributed. Furthermore, we will have a better view of our variable on the log-scale better than the original scale. There is also the added bonus that the log transformation will have, which is, that it will tend to linearize any relationships that might be exponential or multiplicative. This transformation will also fix heteroscedasticity to some extent. Note, we don't use log in its original format, but add 1p, which is equivalent to adding 1 to each value. This is due to the fact that some of the values are equal to 0 of which log of zero is not defined, and thus adding 1 at each instance will ensure that we don't have log of zero.
+
+Below, we start with the business net profits monthly variable and check if they are normally distributed or not. From the distribution below, its clear that the data is skewed to the right, i.e is pulled to the right by very large positive values. Also, we see that the largest values in our variable are very far from the bulk of the other values, thus we have high variability in our data, which causes the plot to not accurately depict the distribution of incomes. This might also be an issue with the other numerical variables too.
+
+```{r}
+hist(imputed_finscope_data2$bus_net_profmnthly,n=50)
+
+
+```
+
+
+Below we have logged transformed our variable so that its more in line with the model assumptions. And from the plot below, we can see that indeed, the distribution is more reflective of a symmetrical and normal distribution, and the large values no longer skew the distribution towards being more skewed positively as much.
+
+```{r}
+hist(log1p(imputed_finscope_data2$bus_net_profmnthly), n=50)
+```
+
+The same logic applies for businesses turnover per month, and as such the same transformations will be applicable and the effects are similar to the one's we ran above for profits.
+
+```{r}
+hist(imputed_finscope_data2$bus_turn_monthly,n=50)
+
+```
+
+Also, this variable shows skewness and thus will also need to be log transformed to make it much more symmetrical and appropriate due to the statistical assumptions made by our model.
+
+```{r}
+hist(log1p(imputed_finscope_data2$tot_hours_wrk),n=50)
+
+```
+
+This one also seems to be reasonably symmetrical and thus we will also not make any transformations on it.
+
+```{r}
+hist(imputed_finscope_data2$age,n=50)
+
+```
+
+From the graphs we have plotted above, its clear which of the numerical variables show non-symmetrical shapes and thus will need to be logged transformed permanently from the data and thus be in line with our model assumptions.
+
+We log transform two variables, namely, *business net profits monthly* and the *business net turnover monthly*.
+
+```{r}
+imputed_finscope_data2$bus_net_profmnthly_log <- log1p(imputed_finscope_data2$bus_net_profmnthly)
+imputed_finscope_data2$bus_turn_monthly_log   <- log1p(imputed_finscope_data2$bus_turn_monthly)
+
+```
+
+Here we drop the variables that were not transformed in favour of the log transformed variables which are much more appropriate.
+
+```{r}
+imputed_finscope_data4 <- subset(imputed_finscope_data2, select = -c(bus_net_profmnthly,bus_turn_monthly))
+```
+
+
+#### Lets model once more
+
+```{r}
+model.log <-  lm(bus_net_profmnthly_log~.,data= imputed_finscope_data4)
+
+summary(model.log)
+```
+
+
+#### Dropping the revenue variable
+
+From a couple of models and plots we have conducted thus far, its clear that business net revenue monthly is a robust predictor for monthly profits. However, revenue and profits typically measures the same thing, though the may be some differences in their values. Thus, revenue is not really a good predictor variable as it also, logically rely on the same variables for it to be either big or small that monthly profits rely on, thus it doesn't really give us an inferential insights and it gives us a false sense of  power into the factors that inform high business profits, when it just measures the same thing, thus we will drop it from our model.
+
+```{r}
+
+imputed_finscope_dataz <- subset(imputed_finscope_data4, select = -c(bus_turn_monthly_log))                                                                                    
+```
+
+
+
+## Model misspecification
+
+Next we shift our attention to functional mispecification which is also another important issue. Functional misspecification is an issue where in our model specification we have failed to account for some important non-linear relationships leading to biases in the estimation of the population parameters or the statistics.
+
+Below we run the resettest to check for functional mispecification in the model. Note, this test does not tell us what form of misspecification we have, and its generally hard to have a sense of the type of misspecification we are dealing with, thus its rare the case that we are able to completely deal with it. The model runs a regression on y as the target variable, and add a slew of non-linear combinations of the fitted values on the x predictor space. The goal is to find if any form of mispecification exists. The reset test then uses the f-test to compare the original model with the modified model to see if the now modified model performs better than the standard model.
+
+```{r}
+#Lets check for some functional misspecification..
+resettest(model.log, power = 2:3, type = 'regressor',data = imputed_finscope_data4)
+
+#Ohk, it seems the p-value at 0.1013 is not sufficiently large enough.
+#Meaning that the extended model with higher degree polynomials of the explanatory variables is
+#Not sufficiently different from the model without the higher degree polynomial to warrant their inclusion..
+#Thus, there is no sufficient evidence for functional misspecification..
+
+```
+
+From the test above, we see that indeed we do have some form of model misspecification. Meaning that the extended model with higher degree polynomials of the explanatory variables is sufficiently different from the model without the higher degree polynomial to warrant their inclusion. Thus, there is sufficient evidence for functional misspecification, meaning we might need to do some feature engineering on top of the one's we have made. 
+
+To achieve this, we can make use of the random forest algorithm to find one form of model misspecification, which is interaction, or variable that have some sort of predictive power when they intercact with each other.
+
+Random forest is a tree based algorithm, which uses multiple trees instead of one to run regression and make predictions, and the prediction of those trees are averaged to produce one prediction. With random forests, the features that make up the tree are chosen at random at each iteration to boost performance.
+
+```{r}
+set.seed(1234)
+
+rf.SMME2 = randomForest(bus_net_profmnthly_log ~., data = imputed_finscope_dataz, localImp = TRUE)
+
+```
+
+```{r}
+plot(rf.SMME2)
+
+
+
+```
+
+#### Interaction terms..
+
+To find the interactions using the random forest algorithm, we make use of the *random forest explainer* package to find the interactions that have predictive power in the set of features we have.
+
+The code below is used to get the minimal depth interactions, or rather interactions that are closest to the root node and thus have predictive power. Then the second batch of code shows the top interactions ordered by mean_min_depth which is the average distance of the interaction from the root node, where a small value of mean_min_depth is considered to be good compared to larger values.
+
+```{r}
+importance_frame <- measure_importance(rf.SMME2)
+
+(vars <- important_variables(importance_frame, k = 15, measures = c("mean_min_depth", "no_of_trees")))
+
+
+
+interactions_frame2 <- min_depth_interactions(rf.SMME2, vars)
+```
+
+```{r}
+head(interactions_frame2[order(interactions_frame2$mean_min_depth, decreasing = FALSE), ])
+```
+
+Now, we plot the interactions frame of interaction and try to pick the most promising interactions to include into our final model.
+
+```{r}
+plot_min_depth_interactions(interactions_frame2)
+
+
+```
+
+Nice, here we have a group of some important interactions on the basis of a random forest algorithm which used the greedy algorithm to decide on the split at each node, with features that can lead to the greatest reduction in error being more preferred. The importance of these nodes is based off how far are they from the initial node, meaning how much of the variation do they account for. The closer each interaction is from the initial node, the more important such a node is and thus the more explanatory power it has. The plot uses a slew of metrics to decide on which interaction is important. One being the mean minimal depth, which measures the average distance of each interaction from the root node, with small mean minimal depths being preferred since this means a split at these nodes at the basis of the greedy algorithm would lead to the greatest improvement on the variability explained by the model. The second measure we look into pertains to the number of occurrences of each interaction in the random trees, with trees with the most occurrences being more important interactions. Occurences are measured from the left to the right, with interactions in the left occuring the most and declining toward the left. The third measure looks into the unconditional mean depth, which looks into the average distance of the interaction from the root node across the trees in the ensemble, not just on the trees it forms part of. The unconditional mean depth is the most robust way to choose the interaction as some interactions may be important in only in the trees they appear in, but not overall, meaning they don't rank as high in the trees they are not part of.
+
+It is in the balance of these three measures that we will choose the most important interactions, and also look into the cardinality of each of the interactions to ensure that we don't run into issues such as overfitting due to have categories that are too many and are rare and thus do not generalize very well, or have too many categories which can lead to computational issues.
+
+From the onset we can see a couple of some important interactions, with the most important being the interaction between where the business operate and the business type. This variable has the lowest mean minimal depth, a relatively small unconditional depth, and is second from the left meaning it has a relatively high occurrence rate. This tells us the profitability of certain business type can be contingent on their location, with certain location being less favoured. Then, on the same basis, we see that where a business operate and the province being important, followed by where a business operate and age, however, this have the potential to increase the cardinality in the data. The following interactions will also be considered, where a business operate and the highest level of education of the owner, business type and the province, location and the province in which the business is located.
+
+#### Creating the interaction variables
+
+```{r}
+imputed_finscope_dataz$wherbusop_bustype <- interaction(imputed_finscope_dataz$wherebusoperate, imputed_finscope_dataz$businesstype)
+
+imputed_finscope_dataz$wherbusop_prov <- interaction(imputed_finscope_dataz$wherebusoperate, imputed_finscope_dataz$province)
+
+
+imputed_finscope_dataz$bustype_prov <- interaction(imputed_finscope_dataz$province, imputed_finscope_dataz$businesstype)
+
+
+
+
+```
+
+
+
+
+
+## Model Fitting 
+
+#### Logged Regression model
+
+Below, we fit a regression model using the *imputed_finscope data*. This will be the first model of the two we will fit, and we will use it as the baseline model. Then afterwards we fit the lasso regression model.
+
+Note, we previously transformed the y-variable by logging it to solve the issue of non-linearity and partially the issue of heteroscedasticity. To fit this model, we used the cross validation method, where we separated the data into 10 folds, and iteratively trained on the k-1 folds and test on the k-th fold at each iteration. Then, to find our co-efficients and their associated statistical properties such as t-values, std errors and p-values, we minimized the cross validated error terms, to ensure that our model is able to generalize and not overfit. We then subsequently picked only the most significant variables at the 0.05 significant level, which is in line with the literature.
+
+
+```{r}
+
+x = model.matrix(bus_net_profmnthly_log~., data = imputed_finscope_dataz)[, -1] #The matrix of x-variables which we will use to fit the model.
+
+y = imputed_finscope_dataz$bus_net_profmnthly_log
+
+trControl <- trainControl(method = 'cv', number = 10)
+
+model <- train(x, y, method = 'lm', trControl = trControl)
+
+
+summary_lm_cv  <- summary(model)
+
+
+#Get the coefficients we need and store them in the coef_lm1 variable
+coef_lm1 <- summary_lm_cv$coefficients
+
+
+#Pick the most important variables at a 0.05 significance level
+sig_coef_lm_cv <- coef_lm1[coef_lm1[, 4] <= 0.05, ]
+
+
+print(sig_coef_lm_cv)
+
+
+```
+
+
+#### The Lasso regression
+
+
+In this final phase of our analysis, we apply the lasso regression, which is the normal regression model but with a penalization term. The lasso regression act as both a feature selection method and a regularization method which will aide us in enhancing the inferential power of our model. We will use this model for the purposes of feature selection and thus be able to get the features that are most important in explaining profitability. With lasso regression, we add a penalty term to the usual ordinarily least squares formulation which seeks to find a model that minimizes the distance between the target variable and the model predicted values. What the lasso does is to add a penalty for overfitting with a regularization term lamdba. What this terms ensures is that the model does not overfit on the data by adding a bias into the data, to avoid overconfidence, especially in the instance where we have a small dataset.
+
+Because we add a penalty term, to still be able to minimize the squared difference between the predicted and actual term, the model will be forced to shrink the co-efficients of the various features in the model. However, some of the features are not that important and have a small weight in modelling y, thus the lasso model will allow for these to go all the way to zero, and thus fall away from the model, unlike other regularization models which do not allow for dropping of variables. This is done to balance the the stress that the regularization term has on the model which increases the sum of squared errors, and thus to mitigate that and still this sse value low, the model decreases the coefficients of the explainer variables.
+
+However, since in this analysis we are interested in the most robust relationships with y and thus we will use the lasso to drop some of the not so important variables. Here, in the code below, we extract the matrix of data which contains the feature variables and assign them to X, and we also extract the variable y which is our target and we assign it to the value y.
+
+```{r}
+library(glmnet) #The package we will use to fit the L1/L2 functions...
+#This package does not use formulae
+x = model.matrix(bus_net_profmnthly_log~., data = imputed_finscope_dataz)[, -1] #The matrix of x-variables which we will use to fit the model.
+y = imputed_finscope_dataz$bus_net_profmnthly_log #The target variable
+
+
+```
+
+Here we fit the model using the imputed data. We use the extracted y and x from above.
+```{r}
+fit.lasso = glmnet(x,y, data = imputed_finscope_dataz ) #The default is 1, which is the lasso
+
+```
+
+
+
+Below we plot the model we have fitted above. On the x-axis we have the log of the regularization term lambda. It decreases from the extreme negatives towards 0 and the positive side. On the y axis we have the values of the coefficients, and we have in the plot for each color the different features we have in our model, and their corresponding values as the log of the regularization term changes. On top of the model we have the number of features we have in the model.
+
+The key insight from this model is the fact that as the log of lambda increase, the coefficients of the various features in the model also tend to decline and at some point with a very large value of lambda, they become zero. Also, the log of lambda is very small, the penalty term is neglible and thus the model is analogous to an ordinary least squares model. Also, the number of variables in the model also tend to decline as the value of the log of lambda increases. To find the optimal value of lambda that balances the performance of our model and the number of variables, we will use cross validation.
+
+```{r}
+plot(fit.lasso, xvar = 'lambda', label= TRUE)
+```
+
+The plot below also enhances the model plot and explains how the deviation of our model prediction from the actual value relative to the mean prediction deviation from the actual value is improved by the increase in the number of variables in the model. Thus, in the x-axis we have the deviation explained by our model relative to the mean model and on the y-axis we have the coefficient values. Initially, we have a few lines sprunging up, meaning the penalty term is very high and thus there are a few features included in the model and are not suppressed by the penalty term. This entails that there's little variation being explained by our model. As the penalty term is relaxed and lambda becomes smaller, the variables included in the model increases as seen by the coloured lines sprunging up.
+
+From when the penalty term is very high and the number of variables included in the model is low, the variance explained is low, and it gradually improves as variables are added and the penalty term is relaxed. There's general improvement in the deviance explained by our model up until say 0.05 where there  are 12 variables. At around 0.15, there's an explosion of variables included into the model, all the way to around 0.20, which might be signalling overfitting of our model by including too many features for such a small improvement in variability/deviance explained. Again, to find the balance between overfitting and the appropriate number of variables included, we will need to use cross validation.
+
+
+```{r}
+plot(fit.lasso, xvar = 'dev', label= TRUE)
+
+
+```
+
+Below we now run the cross validation procedure to find the optimal regularization parameter value. The CV procedure work this way, instead of having a training and a validation dataset, we iteratively demarcate a portion of the data as the test set and use the rest as the training set. For instance, you divide your data into k-folds, then use k-1 folds to train and then test on the k-th fold. Then you repeat the process but pick a different fold to test on each time. Then, now the procedure is to find the model that minimizes the cross validated error term and simultaneously find the lambda that minimizes the cross validated error term.
+
+```{r}
+cv.lasso = cv.glmnet(x,y)
+
+```
+
+
+
+```{r}
+plot(cv.lasso)
+
+```
+From the graph above, its clear where the log of lambda is at, this is the point where the mean squared error of the cross validated error term is minimised.
+
+
+Below, we run the final model, which has been cross validated
+
+
+```{r}
+coef(cv.lasso)
+
+```
+
+
+
+
+## Results and Discussion
+
+#### Logged Regression model results discussion
+
+Above, we have fitted two models, mainly the plain logged regression model, which was cross validated to ensure that the model was not overfitted and there was no high variability in the model on unseen data. From the model, we restricted the variables to those that have a significance level of at least 0.05, which is the academic standard for the variables that will accept as having a significant relationship with profitability.
+
+The first variable that have a significant relationship with business profitability is the variable pertaining to where a business is located, with rural, rural formal, and urban, both formal and informal. This variable shows that urban formal and informal have a positive relationship with profitability, though it was surprising that urban informal made the cut. This can be attributed to the fact that businesses located in urban areas have the advantages of being closer to customers. Furthermore, since urban areas tend to be clustered, they have a lot of customers within a short distance radius, relative to their non-urban counterparts, thus they have a relatively bigger client base to supply goods to or service. Additionally, also related to location, businesses that operate in open spaces also seemed to have a positive relationship with business performance, however upon closer inspection, this category has only one value, which is not enough to determine significance.
+
+This analysis the further looked into another variable, which pertains to the total amount of hours worked. The variable has a positive relationship with business performance, with the more hours worked, the higher the profitability of the business though the value is relatively small at 0.015888976, meaning a unit increase in total hours worked are associated with just 1.59 % increase in profitability, which is comparatively lower than the other factors. Of course no factor is small as when its combined with other can drive a lot of growth in profitability. Thus, it seems working longer hours is positively associated with growth, though this could be a challenge in townships where crime is an issue, especially if you operate too early in the mornings or too late.
+
+Moving forward, we look into the variables that pertains to whom the business sells to, with selling to individuals, selling to other small businesses, larger businesses and the government as the various columns we have, and a binary choice between selling or not selling. Looking into the first variable in this group of variables, we see there's a very significant negative relationship between selling to private individuals and business performance, with not selling to private to private individuals associated with a 56.59% increase in profitability. This implies that SMMEs tend to struggle with competing with the core economy comprised of larger businesses and the government when it comes to servicing the population. However, this is not surprising in South Africa since there's a relatively developed core economy. Further, we also see a major significant positive relationship with selling to larger businesses and government, with an instance of selling to these entities respectively associated with a 26.37% and 63.87% increase in profitability. This shows that SMMEs are much more profitable when they use these bigger businesses as sources of cash and provide them with services or goods that the bigger businesses and government can't in-source and they are better off sourcing them independently. The next variable, which looks at whether a businesses tender bid was successful or not shows that there's a negative relationship with having an unsuccessful tender application and business performance. This feeds on the observations above which shows that SMMEs that services bigger businesses and the government tend to be successful. Thus, having a tender unsuccessful will tend to have devastating impacts on the businesses profits.
+
+Another variable of interest looked into the education cluster of variables, which shed light on managerial competence. The general consesus among all the variables that education has a positive relationship with business performance. Further, we see that both in terms of the p-value and the co-efficient that having at least an education(Some Primary education) and level 6 (Post matric qualification) which is the second highest level of education have the greatest and most robust effect on the performance of businesses in South Africa. Meaning, while on the one hand, being literate can have a huge impact on the performance of businesses relative to the illiterate counterparts, having at least a post Matric qualification also has a positive impact on performance. The post matric qualification factor points that skills plays a pivotal role in the value each enterprise offers and thus its profitability.
+
+We further shift our attention into the access to financial services variable, which looks at whether a business is served or not in the financial services by entities such as banks, microfinance institutions and many more. This variable also asses whether those services are formal or informal. Overall, only one of the categories have a significant negative relationship with business performance, and that category is *not being served*. This makes sense as financial access give a boost to businesses in their ability to execute their business objectives. Services such as banking, having a credit line, insurance products and if they have employees, services such as payroll systems are valuable to businesses, and can improve the constraints to trading and enable ease of doing business. Access to financial services plays a critical role in ensuring overall that the business is able to grow, compete for contracts and invest in their business either through borrowing or seeking out investments. 
+
+Another variable that relates to the access to finance looks into those businesses that either borrows from their friends or family as a source of financing, implying that these businesses don't have adequate access to proper sources of finance to aide in its growth. This variable shows that for businesses that rely on borrowing from friends and family have a negative relationship with business performance, with being such businesses associated with a 39.62% decline in profitability. This further shines light on the importance of having adequate sources of financing to bolster growth. This could be the case as friends and families are not financial institutions, they will tend to be cash constrained and thus do not have adequate financial muscle to help finance an entire business operation.
+
+We further see the variable that looks into whether a business have computerized financial records or not is also a significant indicator of profitability. As we explained above, keeping records should have a robust relationship with performance as such businesses have a trail of its operations, assets and past financial transaction which can help the business keep track of past performances and financial information. This information can be of value to financiers and creditors who can utilize such information to assess the investability of businesses. Further, businesses can use such information to plan and optimize their performance by looking at where they perform best and focusing on those areas which can further drive growth going forward.
+
+The next variable looks into whether a person owns their private residence or not. Surprisingly, this variable have a negative relationship with business performance, which is surprising as we'd expect owners that have houses should be able to pledge them as collateral, and thus be able to access credit markets and invest such monies to their business.
+
+Another significant variable has to do with enterprise classification, showing that micro enterprises which tend to have at least one employee tend to have a positive relationship with business performance. This makes sense as this category when we run the analysis, had a fair amount of data compared to other categories such as the small and medium categories and thus the model can pick the variability it brings. But, also, it makes sense that this is the case as micro-enterprises will be comprised of businesses who unlike their own account counterparts who also contained a lot of data points in ours, were inspired by taking advantage of business opportunities rather than going into businesses for survival ends. Thus, these enterprises would be relatively profitable compared to the own account businesses. Micro enterprises will tend to be your spaza shops, wholesalers, bottle-stores, funeral parlours, mini construction businesses and many other like businesses. Owners of these businesses would have invested a fairly large amount of money into them, and they would be responding to local opportunities.
+
+Next, we look into the age variable, which assess how long an enterprise have been in operation. The variable shows a positive relationship between performance and the age of a business, though not very strong as a unit increase in the age of an enterprise is associated with a 0.8561% increase in their profitability. This positive relationship can be attributed to the experience that each business has in a particular industry and how efficient they are in pursuing the opportunities in that industry due to their accumulated experience in that particular industries. Further, if a business survives the first initial years, build a brand awareness, then that business is on its way to high better performance that those counterparts which fail in the earlier years of operations.
+
+The next set of variables we deal with that are significant have to do with interactions between variables. Interactive variables are the variables that move together, and their significance is contingent on their relationship with each other. The first interaction looks into the relationship between where the business operate and the services they render. This interaction significantly shows a negative relationship between those businesses that sell in stalls, containers or market areas and offer other services that are not highly skilled as having a relatively weaker relationship compared to our baseline. Thus, these businesses tend to be not powerful sources of profitability.
+
+The next interaction we look into has to do with relationship between businesses that operate in areas dedicated to business operations such as a hotel, accommodation facility or a factory and selling by products of animals. These are your butcheries, egg sellers, poultry sellers and many other animal by products. This variable shows a positive relationship between business performance and this interaction, showing the importance of having dedicated business premises and selling things that require a relatively high level of skill.
+
+Another interaction of interest pertains to the instance where a business is located in a farm or stall and interacts with buying stuff and selling them, such as cooking. This interaction and business performance is negative, and it make sense since there's not readily available market where the farms are located for these products. The next set of interaction terms have to with where a business operate and the province it is located in. Specifically, we see a positive interaction between businesses that operate in stall or farms and are located in the following provinces, Eastern Cape, KZN, Limpopo and Gauteng with business performance. This is logical as these provinces have extensive farmland that can be used to generate value and sell, and thus generate profits and thus farming in these provinces tend thrive.
+
+
+#### Lasso Regression
+
+From the lasso model which we fitted, which its main task was to ensure that we did not overfit the data and we further cross validated to ensure that we were not biased towards one training set and that our results could generalize by minimizing errors across different test sets, and also pick the lambda parameter from the cross validated errors. The model forced all the less significant variables to zero and thus a few variables were chosen into the final model.
+
+The first variable it picked was the formal urban variable, and this variable has a positive relationship with business performance. Furthermore, this variable was also significant in the logged model. Thus, its clear that businesses that are located in the urban and formal areas performs relatively better than their rural, rural-formal and urban informal counterparts. This as we outlined in the variable construction part of this analysis, can be attributed to the relatively more developed infrastructure in the formal urban areas which can support businesses in their operations, such as better roads, business premises or industrial zones, and supply chains that are nearby which can help these businesses optimize operations and perform better. Further, and most importantly, urban areas have readily available networks of other businesses and independent consumers, these businesses can supply to and or offer services to.
+
+Further, moving forward, our analysis looks into the variable that probes where a business is located. Though, however this variable is not significant across both models, it is still worth looking into. This variable points out that, in the instances where the business operates in residential premises as having negative relationship with business performance, with such occurrence associated with a 3.55% decrease in profitability . This is an indication that business who have just started should probably look for more business appropriate premises, especially if they are an SMME where there's possible a high influx of clients to buy their goods and services and residential premises are not appropriate to run a business.
+
+Our analysis also note the set of variables that pertains to education which shows managerial competence. These variables point out that having at least some primary education is a robust, even in the lasso regression case of business performance. This variable was also significant in the case of the logged regression, but it was so across different categories not just the first level. This solidifies just the importance of at least having some literacy in running a business. 
+
+Another variable that is coming as significant, and was also forming part of the variables we picked from the baseline model have to do with not having access to financial services as having a negative relationship with business performance.
+
+Furthermore, the variable which probes whether a business is registered or not is also significant for the lasso model. We used the variable to signal whether a business is formal or not when we defined our variables. Though this variable is not collaborated by both models, but this result shows that businesses that are formal will be positively related to performance compared to their unregistered counterparts. This has to do with the kind of opportunities that such businesses have or rather can pursue, such as access to banking services, ability to apply for contracts and tenders and many other advantages of having a registered enterprise. Thus, they are able to capitilize on these and be relatively more successful. Further, it could be argued that businesses that are registered are relatively more formal, thus compared to their more informal counterparts, they are rather motivated by profiteering from opportunities from the markets rather than survival imperatives.
+
+Next, this analysis move towards the variable that looks whether a business keeps computerized financial records or not. This variable is significant across both models and it has to do with the quality of the records the business keeps. As explained above, we expect that a business that has quality records, which are computerized, thus are structured will probably be of high value to investors and potential creditors. Thus, as explained above, drive business growth and ultimately business performance. Further, together with education, we expect that businesses that have managers who take the initiative to seek out expertise in data management systems to be competent managers, and thus will all round better manage the business.
+
+Another variable, specifically from the lasso model but not collaborated by both models is the variable that looks into the business access and usage of insurance products. The first variable pertaining to insurance looks into whether a business has an insurance product, with having an insurance associated with the presence of an insurance product associated with a 10.3% increase in the profitability of a business, and a unit increase in the number of insurance products each business have also associated with a 0.255% increase in the profitability of businesses. The importance of insurance pertains to the risk management attitudes of businesses, whether or not they have mechanisms in place to deal with the occurrence of adverse events such as theft, vandalism or any crime in general. Further, such measures can also be enticing to potential investors as such measures signal that the owners of such businesses care about losses that might be incurred to such an extent that they are taking proactive measures, which would protect the stake of the investors. Further, depending on the type taken, insurance can place a floor on the amount of losses that can be incurred by protecting against unforeseen events. 
+
+Now, we look at another variable that is related to the above mentioned related to having measures against crime. The variable is positively associated with business performance, with the presence of such measures, though it does not specify which ones, associated with a staggering 16.47% increase in the profits of SMMEs. The causal link between measures against crime and profitability are two fold. One has to do with the fact that businesses that have such measures in the first place might be already successful and thus have to protect their assets which protect their assets against crime. Or two, businesses that prioritize measures against crime become successful because they tend to be able to retain their assets for a long period of time, and thus be able to deliver long term growth. Furthermore, businesses that are able to protect their assets will tend to be able to attract capital and debt as their risk profile is relatively less compared to those who don't have adequate risk management procedures.
+
+Though insurance and measures against crime are important, another variable that also have a significant impact on performance, and have to do with the quality of the business is the *access to how many business functions variable*. This variable looks into how many of the important business functions a business have access to, such as a vision and mission statement, business plan, business strategy, marketing plan, accounting systems, formal training of staff and business budgeting. From the model, we see that a unit increase in the number of these functions is associated with a 0.712% increase in the profitability of a business. This shows that a business that have at the least a plan on how to take advantage of opportunities in the market documented will tend to perform better than those who don't have such measures. Such effort signals that a business have taken the time to recognize opportunities that exist in the market, and figured out a way to go about executing on them. These are also a testament on the managerial competence in taking advantage of market opportunities by carefully planning on how to go about and exploit them.
+
+
+Another variable that have a positive relationship with business performance pertains to the enterprise classification. This variable shows that there's a significant relationship between being at the least a micro-enterprise, which is just a step above the own account category, with this variable showing that being at the least a micro-enterprise is associated with a 64.12% increase in profitability. This insight collaborates the result we gained from the logged model above which also highlighted the same relationship. The insight still remain here, that micro-enterprise unlike their own account counterparts are motivated by taking advantages of opportunities in the market rather than being in business for survival reasons since the owners can't get opportunities in the market.
+
+The last set of variables that we look into from the lasso regression model pertains to the interaction variables, where the importance of each variable is contingent on another variable and visa-versa. We see for instance business premises as being important when they interact with a province. For instance, we see that having your business hosted in you residential premises and being in the EC are negatively correlated, with such occurrence associated with a 11.11% decline in profitability. Also, we also see for KZN and businesses that operate in residential premises dedicated a business such as a factory, business park or a hotel have a significant relationship with profitability.
+
+
+
+## Conclusion
+Inspired by the issue of chronic unemployment in South Africa, especially among the youth, this analysis seeked to analyse the factors that are important in driving SMME performance in South Africa, using business profitability as the proxy for business performance. We looked at SMMEs as they have the greatest potential for driving growth and improving the employment landscape and they further form an integral part of government policy to tackle unemployment.
+
+One of the core findings of this study across both models we utilized, the lasso and the logged model is that SMMEs that sells goods or services to larger businesses and the government tend to perform relatively better compared to their counterparts who don't. Further, those enterprises who offer services to private individuals tend to have a negative relationship with business performance. Further, location, specifically being located in the urban formal sector is also a significant predictor of business performance, and this was also collaborated by both models. This from the analysis can be due to the strategic location that urban areas find themselves in, both in terms of infrastructure and density of clients. Further, related to location, our models shows that its important to host your business in business appropriate premises and in line with your business such as in a factory, business park or hotels or BnB for accommodation businesses, avoiding residential areas as they negatively linked with business performance..
+
+Another strong theme in this analysis we came across was the theme of managerial competence. We saw that across both models that being at the least literate is associated with more profitability. Other proxies for competence relates to the strategic decisions that business owners take on behalf of their businesses, such as taking out insurance products, having measures against crime, accessing business functions such as accounting systems, budgeting and many others. All these proxies where found to be significantly associated with profitability. Furthermore, its clear that a culmination of these variables is important in having a profitable enterprise.
+
+Our analysis further showed that, and this insight was collaborated by both models on the importance of being at least a micro enterprise as having a positive effect on the profitability of firms. This can be attributed that in the context of South Africa where there is high unemployment people who start own account enterprises are mostly motivated by survival imperatives and would opt for a job in the formal sector given the chance. Thus, on the other hand, micro-enterprises are more likely to be motivated by chasing market opportunities rather than survival imperatives. Thus, taking time to investigate the market you want to enter and invest considerate amount of finances to make business more appropriate for the market can go a long way.
+
+
+
+
+
