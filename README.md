@@ -5,7 +5,7 @@ South Africa faces the persistent issue of unemployment, with around 34.5% of So
 Technical steps:
 This analysis first selected the appropriate variables, cleaned them and constructed some newer ones to aide in our analysis. Then, 
 
-* Studentised residuals and Cooks distances where used to remove outliers.
+* Studentised residuals and Cooks distances where used to identify outliers, quantify their impact and inform their removal.
 * To deal with the multicollinearity, we used the Inflation Variance Factory( VIF).
 * Then, log transformations were used to fix the issue of non-linearity and lessen the severity of heteroscedasticity.
 * Missing values were replaced with using the Predicitve Mean Matching algorithm contained in the Mice package.
